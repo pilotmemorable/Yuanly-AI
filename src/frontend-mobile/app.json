@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Yuanly AI",
+    "slug": "yuanly-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "bundleIdentifier": "com.yuanly.ai",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.yuanly.ai",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "plugins": [
+      "expo-localization",
+      "expo-constants"
+    ],
+    "extra": {
+      "apiUrl": "https://yuanly-backend.railway.app"
+    }
+  }
+}
