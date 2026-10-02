@@ -1,0 +1,26 @@
+{
+  "skill_id": "payment_gateway_v1",
+  "name": "Omni-Payment Skill",
+  "description": "Handles the secure transition from booking to payment using Chinese and Global gateways.",
+  "capabilities": [
+    {
+      "action": "initiate_payment",
+      "parameters": ["amount", "currency", "payment_method"],
+      "logic": "Create a payment session via WeChat Pay / Alipay / Stripe API."
+    },
+    {
+      "action": "verify_transaction",
+      "parameters": ["payment_ref"],
+      "logic": "Verify the transaction status through the gateway's webhook/API."
+    },
+    {
+      "action": "issue_refund",
+      "parameters": ["payment_ref", "reason"],
+      "logic": "Process refund based on the Merchant's cancellation policy."
+    }
+  ],
+  "security": {
+    "encryption": "AES-256 for payment tokens",
+    "compliance": "PCI-DSS aligned flow"
+  }
+}

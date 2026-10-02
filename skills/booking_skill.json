@@ -1,0 +1,26 @@
+{
+  "skill_id": "booking_engine_v1",
+  "name": "Experience Booking Skill",
+  "description": "Enables the AI agent to check availability, manage dates/times, and initiate booking requests for Turkey experiences.",
+  "capabilities": [
+    {
+      "action": "check_availability",
+      "parameters": ["experience_id", "date", "guest_count"],
+      "logic": "Query Merchant_Calendar API for available slots."
+    },
+    {
+      "action": "hold_slot",
+      "parameters": ["experience_id", "slot_id", "user_id"],
+      "logic": "Temporarily lock a slot for 15 minutes during the payment process."
+    },
+    {
+      "action": "confirm_booking",
+      "parameters": ["booking_id", "payment_ref"],
+      "logic": "Finalize the booking in the DB and generate a QR ticket."
+    }
+  ],
+  "error_handling": {
+    "slot_taken": "Suggest next available slot or alternative date.",
+    "api_timeout": "Notify user of temporary delay and offer to call them back."
+  }
+}
