@@ -1,193 +1,394 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
-import { useLanguage } from '../context/LanguageContext';
+import React, { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Bell, ChevronRight, Lock, LogOut, Trash } from 'lucide-react-native';
+import { AuthPromptCard } from '../components/AuthPromptCard';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { LegalLinks } from '../components/LegalLinks';
+import { PrimaryButton } from '../components/PrimaryButton';
+import { ReasonPromptModal } from '../components/ReasonPromptModal';
+import { BORDER_RADIUS, COLORS, SPACING } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
-import { authAPI } from '../services/api';
-import { Booking, Globe, Star, Bell, CreditCard, LogOut, ChevronRight, Settings as SettingsIcon } from 'lucide-react-native';
+import { useLanguage } from '../context/LanguageContext';
+import { authAPI, bookingAPI, getErrorMessage } from '../services/api';
+import { Language } from '../i18n/translations';
+import { useFocusEffect } from '@react-navigation/native';
 
-export const ProfileScreen = ({ navigation }: any) => {
-  const { t, language, setLanguage } = useLanguage();
-  const { user, logout } = useAuth();
-  const [profile, setProfile] = useState<any>(null);
+export function ProfileScreen({ navigation }: any) {
+  const { user, isAuthenticated, logout, refreshUser, updateUser } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const [loading, setLoading] = useState(true);
+  const [bookingsCount, setBookingsCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [deleteVisible, setDeleteVisible] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  const loadProfile = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
 
-  const fetchProfile = async () => {
     try {
-      if (user?.id === 'guest') {
-        setProfile({ fullName: 'Guest', membershipLevel: 'GUEST', preferredLanguage: language, _count: { bookings: 0, reviews: 0 } });
-      } else {
-        const res = await authAPI.getProfile();
-        setProfile(res.user);
+      const [freshUser, notificationsResponse, bookingsResponse] = await Promise.all([
+        refreshUser().catch(() => user),
+        authAPI.getNotifications(true),
+        bookingAPI.list({ limit: 1 }),
+      ]);
+
+      if (freshUser) {
+        await updateUser(freshUser);
       }
+      setUnreadCount(notificationsResponse.unreadCount || 0);
+      setBookingsCount(bookingsResponse.pagination?.total ?? bookingsResponse.bookings?.length ?? 0);
     } catch (error) {
-      console.error('[Profile] Error:', error);
-      setProfile(user);
+      Alert.alert(t('common.error'), getErrorMessage(error));
     } finally {
       setLoading(false);
     }
+  }, [isAuthenticated, refreshUser, t, updateUser, user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadProfile();
+    }, [loadProfile]),
+  );
+
+  const handleLanguageChange = async (nextLanguage: Language) => {
+    await setLanguage(nextLanguage);
+
+    if (!isAuthenticated || !user) {
+      return;
+    }
+
+    try {
+      const response = await authAPI.updateMe({ preferredLanguage: nextLanguage });
+      await updateUser(response.user);
+    } catch (error) {
+      Alert.alert(t('common.error'), t('profile.languageSaveFailed'));
+    }
   };
 
-  const handleLogout = () => {
-    logout();
+  const confirmDelete = () => {
+    Alert.alert(t('profile.deleteFirstTitle'), t('profile.deleteFirstMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('profile.deleteAccount'),
+        style: 'destructive',
+        onPress: () =>
+          Alert.alert(t('profile.deleteSecondTitle'), t('profile.deleteSecondMessage'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            {
+              text: t('profile.deleteAccount'),
+              style: 'destructive',
+              onPress: () => setDeleteVisible(true),
+            },
+          ]),
+      },
+    ]);
   };
 
-  const handleLanguageChange = (lang: 'CN' | 'EN' | 'TR') => {
-    setLanguage(lang);
+  const submitDelete = async (password: string) => {
+    if (!password) {
+      Alert.alert(t('common.error'), t('auth.deletePasswordPrompt'));
+      return;
+    }
+
+    setDeleteLoading(true);
+    try {
+      await authAPI.deleteMe({ password });
+      setDeleteVisible(false);
+      await logout();
+      Alert.alert(t('common.ok'), t('profile.deleteSuccess'));
+      navigation.navigate('MainTabs', { screen: 'Explore' });
+    } catch (error) {
+      Alert.alert(t('common.error'), getErrorMessage(error));
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
-  if (loading) {
+  if (!isAuthenticated) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView contentContainerStyle={styles.guestContent} showsVerticalScrollIndicator={false}>
+          <AuthPromptCard
+            title={t('profile.guestTitle')}
+            message={t('profile.guestMessage')}
+            signInLabel={t('common.signIn')}
+            createAccountLabel={t('common.createAccount')}
+            onLogin={() => navigation.navigate('Login')}
+            onRegister={() => navigation.navigate('Register')}
+          />
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('profile.language')}</Text>
+            <LanguageSwitcher language={language} onChange={(nextLanguage) => void handleLanguageChange(nextLanguage)} />
+          </View>
+          <View style={styles.section}>
+            <LegalLinks
+              privacyLabel={t('profile.privacy')}
+              termsLabel={t('profile.terms')}
+              supportLabel={t('profile.support')}
+            />
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (loading && !user) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
+        <View style={styles.loadingState}>
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       </SafeAreaView>
     );
   }
 
-  const fullName = profile?.fullName || 'User';
-  const level = profile?.membershipLevel || 'GUEST';
-  const levelKey = `profile.${level.toLowerCase()}`;
-  const bookingCount = profile?._count?.bookings || 0;
-  const reviewCount = profile?._count?.reviews || 0;
-  const trustScore = profile?.trustScore || 0;
-
-  const menuItems = [
-    { icon: Booking, label: t('profile.myBookings'), onPress: () => navigation.navigate('MyTrips'), count: bookingCount },
-    { icon: Star, label: t('profile.reviews'), onPress: () => {}, count: reviewCount },
-    { icon: Bell, label: t('profile.notifications'), onPress: () => {}, count: null },
-    { icon: CreditCard, label: t('profile.paymentMethods'), onPress: () => {}, count: null },
-    { icon: SettingsIcon, label: t('profile.settings'), onPress: () => {}, count: null },
-  ];
-
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{fullName.charAt(0).toUpperCase()}</Text>
-            </View>
-            <View style={[styles.levelBadge, { backgroundColor: level === 'VIP' ? COLORS.secondary : COLORS.primary }]}>
-              <Text style={styles.levelText}>{t(levelKey)}</Text>
-            </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.headerCard}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{user?.fullName?.[0]?.toUpperCase() || 'Y'}</Text>
           </View>
-          <Text style={styles.name}>{fullName}</Text>
-          {trustScore > 0 && (
-            <Text style={styles.trustScore}>Trust Score: {trustScore.toFixed(1)} ★</Text>
-          )}
+          <Text style={styles.name}>{user?.fullName}</Text>
+          <Text style={styles.email}>{user?.email}</Text>
+          <View style={styles.roleBadge}>
+            <Text style={styles.roleBadgeText}>
+              {t(
+                user?.role === 'MERCHANT'
+                  ? 'profile.roleMerchant'
+                  : user?.role === 'ADMIN'
+                    ? 'profile.roleAdmin'
+                    : 'profile.roleUser',
+              )}
+            </Text>
+          </View>
         </View>
 
-        {/* Stats */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{bookingCount}</Text>
-            <Text style={styles.statLabel}>{t('profile.myBookings')}</Text>
+            <Text style={styles.statNumber}>{bookingsCount}</Text>
+            <Text style={styles.statLabel}>{t('profile.bookingsCount')}</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{reviewCount}</Text>
-            <Text style={styles.statLabel}>{t('profile.reviews')}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{trustScore.toFixed(1)}</Text>
-            <Text style={styles.statLabel}>Trust</Text>
+            <Text style={styles.statNumber}>{unreadCount}</Text>
+            <Text style={styles.statLabel}>{t('profile.unreadNotifications')}</Text>
           </View>
         </View>
 
-        {/* Language Switcher */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('profile.language')}</Text>
-          <View style={styles.langRow}>
-            {(['CN', 'EN', 'TR'] as const).map((lang) => (
-              <TouchableOpacity
-                key={lang}
-                style={[styles.langButton, language === lang && styles.langButtonActive]}
-                onPress={() => handleLanguageChange(lang)}
-              >
-                <Text style={[styles.langText, language === lang && styles.langTextActive]}>
-                  {lang === 'CN' ? '中文' : lang === 'EN' ? 'English' : 'Türkçe'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <LanguageSwitcher language={language} onChange={(nextLanguage) => void handleLanguageChange(nextLanguage)} />
         </View>
 
-        {/* Menu */}
-        <View style={styles.menuContainer}>
-          {menuItems.map((item, index) => {
-            const Icon = item.icon;
-            return (
-              <TouchableOpacity key={index} style={styles.menuItem} onPress={item.onPress}>
-                <View style={styles.menuLeft}>
-                  <Icon size={22} color={COLORS.primary} />
-                  <Text style={styles.menuLabel}>{item.label}</Text>
-                </View>
-                <View style={styles.menuRight}>
-                  {item.count !== null && item.count > 0 && (
-                    <View style={styles.countBadge}>
-                      <Text style={styles.countText}>{item.count}</Text>
-                    </View>
-                  )}
-                  <ChevronRight size={20} color={COLORS.textSecondary} />
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+        <View style={styles.menuCard}>
+          <MenuRow
+            icon={<Bell color={COLORS.primaryDark} size={20} />}
+            label={t('profile.notifications')}
+            trailing={String(unreadCount)}
+            onPress={() => navigation.navigate('Notifications')}
+          />
+          <MenuRow
+            icon={<Lock color={COLORS.primaryDark} size={20} />}
+            label={t('profile.changePassword')}
+            onPress={() => navigation.navigate('ChangePassword')}
+          />
         </View>
 
-        {/* Logout */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <LogOut size={20} color="#F44336" />
-          <Text style={styles.logoutText}>{t('profile.logout')}</Text>
-        </TouchableOpacity>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Yuanly AI v1.0.0</Text>
-          <Text style={styles.footerSubtext}>缘 — The fateful connection</Text>
+        <View style={styles.section}>
+          <LegalLinks
+            privacyLabel={t('profile.privacy')}
+            termsLabel={t('profile.terms')}
+            supportLabel={t('profile.support')}
+          />
         </View>
+
+        <PrimaryButton
+          title={t('profile.logout')}
+          variant="secondary"
+          icon={<LogOut color={COLORS.text} size={18} />}
+          onPress={() => void logout()}
+        />
+        <PrimaryButton
+          title={t('profile.deleteAccount')}
+          variant="danger"
+          icon={<Trash color={COLORS.white} size={18} />}
+          onPress={confirmDelete}
+        />
       </ScrollView>
+
+      <ReasonPromptModal
+        visible={deleteVisible}
+        title={t('profile.deleteAccount')}
+        description={t('auth.deletePasswordPrompt')}
+        placeholder={t('auth.password')}
+        confirmLabel={t('profile.deleteAccount')}
+        loading={deleteLoading}
+        secureTextEntry
+        multiline={false}
+        onCancel={() => setDeleteVisible(false)}
+        onSubmit={(value) => void submitDelete(value)}
+      />
     </SafeAreaView>
   );
-};
+}
+
+function MenuRow({
+  icon,
+  label,
+  trailing,
+  onPress,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  trailing?: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.menuRow} onPress={onPress}>
+      <View style={styles.menuLeft}>
+        {icon}
+        <Text style={styles.menuLabel}>{label}</Text>
+      </View>
+      <View style={styles.menuRight}>
+        {trailing && trailing !== '0' ? <Text style={styles.menuTrailing}>{trailing}</Text> : null}
+        <ChevronRight color={COLORS.textSecondary} size={18} />
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { alignItems: 'center', padding: SPACING.xl, marginTop: 10 },
-  avatarContainer: { position: 'relative', marginBottom: 16 },
-  avatar: { width: 90, height: 90, borderRadius: 45, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
-  avatarText: { fontSize: 36, fontWeight: 'bold', color: COLORS.white },
-  levelBadge: { position: 'absolute', bottom: -4, right: -4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  levelText: { color: COLORS.white, fontSize: 10, fontWeight: 'bold' },
-  name: { fontSize: 24, fontWeight: 'bold', color: COLORS.text },
-  trustScore: { fontSize: 14, color: COLORS.secondary, marginTop: 4 },
-  statsRow: { flexDirection: 'row', paddingHorizontal: SPACING.l, marginBottom: SPACING.l },
-  statCard: { flex: 1, backgroundColor: COLORS.white, padding: 16, borderRadius: 15, marginHorizontal: 4, alignItems: 'center' },
-  statNumber: { fontSize: 24, fontWeight: 'bold', color: COLORS.primary },
-  statLabel: { fontSize: 12, color: COLORS.textSecondary, marginTop: 4 },
-  section: { padding: SPACING.l },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text, marginBottom: 12 },
-  langRow: { flexDirection: 'row', gap: 8 },
-  langButton: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: COLORS.surface, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
-  langButtonActive: { borderColor: COLORS.primary },
-  langText: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '600' },
-  langTextActive: { color: COLORS.primary },
-  menuContainer: { paddingHorizontal: SPACING.l },
-  menuItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: COLORS.white, borderRadius: 15, marginBottom: 8 },
-  menuLeft: { flexDirection: 'row', alignItems: 'center' },
-  menuLabel: { fontSize: 16, color: COLORS.text, marginLeft: 14 },
-  menuRight: { flexDirection: 'row', alignItems: 'center' },
-  countBadge: { backgroundColor: COLORS.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, marginRight: 8 },
-  countText: { color: COLORS.white, fontSize: 12, fontWeight: 'bold' },
-  logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', margin: SPACING.l, padding: 16, borderRadius: 15, backgroundColor: '#FFF0F0', gap: 8 },
-  logoutText: { color: '#F44336', fontSize: 16, fontWeight: '600' },
-  footer: { alignItems: 'center', padding: SPACING.l, paddingBottom: 40 },
-  footerText: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 4 },
-  footerSubtext: { fontSize: 12, color: COLORS.textSecondary },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  loadingState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  guestContent: {
+    padding: SPACING.l,
+    gap: SPACING.l,
+  },
+  scrollContent: {
+    padding: SPACING.l,
+    gap: SPACING.l,
+    paddingBottom: SPACING.xxl,
+  },
+  headerCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.card,
+    padding: SPACING.xl,
+    alignItems: 'center',
+    gap: SPACING.s,
+  },
+  avatar: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: COLORS.white,
+    fontSize: 36,
+    fontWeight: '800',
+  },
+  name: {
+    color: COLORS.text,
+    fontSize: 26,
+    fontWeight: '800',
+  },
+  email: {
+    color: COLORS.textSecondary,
+  },
+  roleBadge: {
+    borderRadius: BORDER_RADIUS.pill,
+    backgroundColor: COLORS.primarySoft,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  roleBadgeText: {
+    color: COLORS.primaryDark,
+    fontWeight: '700',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: SPACING.s,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.card,
+    padding: SPACING.l,
+    alignItems: 'center',
+    gap: 4,
+  },
+  statNumber: {
+    color: COLORS.primaryDark,
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  statLabel: {
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  section: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.card,
+    padding: SPACING.l,
+    gap: SPACING.m,
+  },
+  sectionTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  menuCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.card,
+    overflow: 'hidden',
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.l,
+    paddingVertical: 18,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.border,
+  },
+  menuLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.s,
+  },
+  menuLabel: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  menuRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.s,
+  },
+  menuTrailing: {
+    color: COLORS.primaryDark,
+    fontWeight: '700',
+  },
 });

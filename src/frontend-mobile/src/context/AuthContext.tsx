@@ -1,79 +1,113 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { tokenManager } from '../services/api';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { authAPI, isApiError, setApiUnauthorizedHandler } from '../services/api';
+import { sessionStorage } from '../services/storage';
+import { User } from '../types/api';
 
-interface User {
-  id: string;
-  fullName?: string;
-  email?: string;
-  phone?: string;
-  avatar?: string;
-  membershipLevel: string;
-  preferredLanguage: string;
-  trustScore?: number;
-  role?: string;
-}
-
-interface AuthContextType {
+interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (token: string, user: User) => Promise<void>;
   logout: () => Promise<void>;
-  updateUser: (user: User) => void;
+  updateUser: (user: User) => Promise<void>;
+  refreshUser: () => Promise<User | null>;
 }
 
-const AuthContext = createContext<AuthContextType>({
+const AuthContext = createContext<AuthContextValue>({
   user: null,
   isLoading: true,
   isAuthenticated: false,
-  login: async () => {},
-  logout: async () => {},
-  updateUser: () => {},
+  login: async () => undefined,
+  logout: async () => undefined,
+  updateUser: async () => undefined,
+  refreshUser: async () => null,
 });
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    checkAuthState();
+  const clearSession = useCallback(async () => {
+    await sessionStorage.clearSession();
+    setUser(null);
   }, []);
 
-  const checkAuthState = async () => {
-    try {
-      const token = await tokenManager.getToken();
-      const savedUser = await tokenManager.getUser();
-      if (token && savedUser) {
-        setUser(savedUser);
-      }
-    } catch (error) {
-      console.error('[Auth] State check error:', error);
-    } finally {
-      setIsLoading(false);
+  const refreshUser = useCallback(async () => {
+    const token = await sessionStorage.getToken();
+    if (!token) {
+      setUser(null);
+      return null;
     }
-  };
 
-  const login = async (token: string, userData: User) => {
-    await tokenManager.save(token, userData);
-    setUser(userData);
-  };
+    const response = await authAPI.getMe();
+    setUser(response.user);
+    await sessionStorage.saveSession(token, response.user);
+    return response.user;
+  }, []);
 
-  const logout = async () => {
-    await tokenManager.clear();
-    setUser(null);
-  };
+  useEffect(() => {
+    setApiUnauthorizedHandler(clearSession);
 
-  const updateUser = (userData: User) => {
-    setUser(userData);
-    AsyncStorage.setItem('@yuanly/user_data', JSON.stringify(userData));
-  };
+    void (async () => {
+      const token = await sessionStorage.getToken();
+      const storedUser = await sessionStorage.getUser();
 
-  return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, logout, updateUser }}>
-      {children}
-    </AuthContext.Provider>
+      if (storedUser) {
+        setUser(storedUser);
+      }
+
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        await refreshUser();
+      } catch (error) {
+        if (isApiError(error) && error.status === 401) {
+          await clearSession();
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+
+    return () => setApiUnauthorizedHandler(null);
+  }, [clearSession, refreshUser]);
+
+  const login = useCallback(async (token: string, nextUser: User) => {
+    await sessionStorage.saveSession(token, nextUser);
+    setUser(nextUser);
+  }, []);
+
+  const logout = useCallback(async () => {
+    await clearSession();
+  }, [clearSession]);
+
+  const updateUser = useCallback(async (nextUser: User) => {
+    const token = await sessionStorage.getToken();
+    if (token) {
+      await sessionStorage.saveSession(token, nextUser);
+    }
+    setUser(nextUser);
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      user,
+      isLoading,
+      isAuthenticated: Boolean(user),
+      login,
+      logout,
+      updateUser,
+      refreshUser,
+    }),
+    [isLoading, login, logout, refreshUser, updateUser, user],
   );
-};
 
-export const useAuth = () => useContext(AuthContext);
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  return useContext(AuthContext);
+}

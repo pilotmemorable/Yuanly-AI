@@ -1,188 +1,167 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
-import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { BORDER_RADIUS, COLORS, SPACING } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
+import { authAPI, getErrorMessage } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { authAPI } from '../services/api';
+import { PrimaryButton } from '../components/PrimaryButton';
+import { Language } from '../i18n/translations';
 
-export const LoginScreen = () => {
-  const { t } = useLanguage();
+export function LoginScreen({ navigation }: any) {
+  const { t, setLanguage } = useLanguage();
   const { login } = useAuth();
-  const [step, setStep] = useState<'login' | 'verify'>('login');
-  const [userId, setUserId] = useState('');
-  const [code, setCode] = useState('');
   const [email, setEmail] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleWeChatLogin = async () => {
-    setLoading(true);
-    try {
-      // In production, this would open WeChat SDK
-      // For now, simulate with a test token
-      const res = await authAPI.wechatLogin('wx_test_001');
-      setUserId(res.userId);
-      setStep('verify');
-    } catch (error: any) {
-      Alert.alert(t('common.error'), error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEmailRegister = async () => {
-    if (!email) {
-      Alert.alert(t('common.error'), 'Email is required');
+  const handleLogin = async () => {
+    if (!email.trim()) {
+      Alert.alert(t('common.error'), t('auth.emailRequired'));
       return;
     }
-    setLoading(true);
-    try {
-      const res = await authAPI.register({ email, fullName, preferredLanguage: 'CN' });
-      setUserId(res.userId);
-      setStep('verify');
-    } catch (error: any) {
-      Alert.alert(t('common.error'), error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleVerify = async () => {
-    if (!code) {
-      Alert.alert(t('common.error'), 'Code is required');
+    if (!password) {
+      Alert.alert(t('common.error'), t('auth.passwordRequired'));
       return;
     }
+
     setLoading(true);
     try {
-      const res = await authAPI.verify2FA(userId, code);
-      if (res.token) {
-        await login(res.token, res.user);
+      const response = await authAPI.login({ email: email.trim().toLowerCase(), password });
+      await login(response.token, response.user);
+      if (response.user.preferredLanguage) {
+        await setLanguage(response.user.preferredLanguage as Language);
       }
-    } catch (error: any) {
-      Alert.alert(t('common.error'), error.message);
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert(t('common.error'), getErrorMessage(error));
     } finally {
       setLoading(false);
     }
   };
-
-  const handleGuest = () => {
-    // Continue as guest — no auth
-    login('guest_token', { id: 'guest', membershipLevel: 'GUEST', preferredLanguage: 'CN', fullName: 'Guest' });
-  };
-
-  if (step === 'verify') {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
-          <Text style={styles.title}>{t('auth.enterCode')}</Text>
-          <Text style={styles.subtitle}>{t('auth.codeSent')}</Text>
-          <Text style={styles.hint}>Dev mode: use 123456</Text>
-
-          <TextInput
-            style={styles.input}
-            placeholder="000000"
-            placeholderTextColor={COLORS.textSecondary}
-            value={code}
-            onChangeText={setCode}
-            keyboardType="numeric"
-            maxLength={6}
-            autoFocus
-          />
-
-          <TouchableOpacity style={styles.primaryButton} onPress={handleVerify} disabled={loading}>
-            {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.primaryButtonText}>{t('auth.verify')}</Text>}
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>缘</Text>
-          </View>
-          <Text style={styles.title}>{t('auth.welcome')}</Text>
-          <Text style={styles.subtitle}>{t('auth.subtitle')}</Text>
-        </View>
-
-        <View style={styles.formContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor={COLORS.textSecondary}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Full Name (optional)"
-            placeholderTextColor={COLORS.textSecondary}
-            value={fullName}
-            onChangeText={setFullName}
-          />
-
-          <TouchableOpacity style={styles.primaryButton} onPress={handleEmailRegister} disabled={loading}>
-            {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.primaryButtonText}>{t('auth.emailRegister')}</Text>}
-          </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.dividerLine} />
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.content}>
+          <View style={styles.hero}>
+            <View style={styles.logo}>
+              <Text style={styles.logoText}>缘</Text>
+            </View>
+            <Text style={styles.title}>{t('auth.signInTitle')}</Text>
+            <Text style={styles.subtitle}>{t('auth.signInSubtitle')}</Text>
           </View>
 
-          <TouchableOpacity style={styles.wechatButton} onPress={handleWeChatLogin} disabled={loading}>
-            <Text style={styles.wechatButtonText}>{t('auth.wechatLogin')}</Text>
-          </TouchableOpacity>
+          <View style={styles.form}>
+            <TextInput
+              autoCapitalize="none"
+              autoComplete="email"
+              keyboardType="email-address"
+              placeholder={t('auth.email')}
+              placeholderTextColor={COLORS.textSecondary}
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+            />
+            <TextInput
+              autoCapitalize="none"
+              autoComplete="password"
+              placeholder={t('auth.password')}
+              placeholderTextColor={COLORS.textSecondary}
+              secureTextEntry
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+            />
+            <PrimaryButton title={t('auth.signInCta')} loading={loading} onPress={handleLogin} />
+          </View>
 
-          <TouchableOpacity style={styles.guestButton} onPress={handleGuest}>
-            <Text style={styles.guestButtonText}>{t('auth.skip')}</Text>
-          </TouchableOpacity>
+          <View style={styles.footer}>
+            <Text style={styles.hint}>{t('auth.browseHint')}</Text>
+            <TouchableOpacity onPress={() => navigation.replace('Register')}>
+              <Text style={styles.link}>{t('auth.registerCta')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  content: { flex: 1, padding: SPACING.xl, justifyContent: 'center' },
-  logoContainer: { alignItems: 'center', marginBottom: 40 },
+  flex: { flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  content: {
+    flex: 1,
+    padding: SPACING.l,
+    justifyContent: 'center',
+    gap: SPACING.xl,
+  },
+  hero: {
+    alignItems: 'center',
+    gap: SPACING.s,
+  },
   logo: {
-    width: 80, height: 80, borderRadius: 40,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: COLORS.primary,
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: 20,
   },
-  logoText: { fontSize: 36, color: COLORS.white, fontWeight: 'bold' },
-  title: { fontSize: 28, fontWeight: 'bold', color: COLORS.text, marginBottom: 8 },
-  subtitle: { fontSize: 16, color: COLORS.textSecondary, textAlign: 'center' },
-  hint: { fontSize: 14, color: COLORS.primary, marginTop: 8, textAlign: 'center' },
-  formContainer: { marginBottom: 20 },
+  logoText: {
+    color: COLORS.white,
+    fontSize: 38,
+    fontWeight: '800',
+  },
+  title: {
+    color: COLORS.text,
+    fontSize: 30,
+    fontWeight: '800',
+  },
+  subtitle: {
+    color: COLORS.textSecondary,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  form: {
+    gap: SPACING.m,
+  },
   input: {
-    borderWidth: 1, borderColor: '#E0E0E0', borderRadius: BORDER_RADIUS.button,
-    paddingHorizontal: 20, paddingVertical: 16, fontSize: 16, color: COLORS.text,
-    marginBottom: 12, backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.button,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 18,
+    paddingVertical: 15,
+    color: COLORS.text,
+    fontSize: 16,
   },
-  primaryButton: {
-    backgroundColor: COLORS.primary, paddingVertical: 18,
-    borderRadius: BORDER_RADIUS.button, alignItems: 'center',
-    marginTop: 8,
+  footer: {
+    alignItems: 'center',
+    gap: SPACING.s,
   },
-  primaryButtonText: { color: COLORS.white, fontSize: 18, fontWeight: 'bold' },
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 24 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E0E0E0' },
-  dividerText: { marginHorizontal: 16, color: COLORS.textSecondary, fontSize: 14 },
-  wechatButton: {
-    backgroundColor: '#07C160', paddingVertical: 18,
-    borderRadius: BORDER_RADIUS.button, alignItems: 'center',
+  hint: {
+    color: COLORS.textSecondary,
+    textAlign: 'center',
   },
-  wechatButtonText: { color: COLORS.white, fontSize: 18, fontWeight: 'bold' },
-  guestButton: { paddingVertical: 16, alignItems: 'center', marginTop: 12 },
-  guestButtonText: { color: COLORS.textSecondary, fontSize: 16 },
+  link: {
+    color: COLORS.primaryDark,
+    fontWeight: '700',
+    fontSize: 16,
+  },
 });

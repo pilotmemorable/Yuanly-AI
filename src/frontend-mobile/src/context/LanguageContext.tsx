@@ -1,47 +1,65 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { translations, Language } from '../i18n/translations';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { getLocales } from 'expo-localization';
+import { Language, TranslationParams, translateText } from '../i18n/translations';
+import { getStoredLanguage, setStoredLanguage } from '../services/storage';
 
-interface LanguageContextType {
+interface LanguageContextValue {
   language: Language;
-  setLanguage: (lang: Language) => void;
-  t: (key: string) => string;
+  setLanguage: (language: Language) => Promise<void>;
+  t: (key: string, params?: TranslationParams) => string;
 }
 
-const LanguageContext = createContext<LanguageContextType>({
-  language: 'CN',
-  setLanguage: () => {},
-  t: (key: string) => key,
+const LanguageContext = createContext<LanguageContextValue>({
+  language: 'EN',
+  setLanguage: async () => undefined,
+  t: (key) => key,
 });
 
-export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>('CN');
+function getDefaultLanguage(): Language {
+  const locale = getLocales()[0];
+  const languageCode = locale?.languageCode?.toLowerCase();
+
+  if (languageCode === 'zh') {
+    return 'CN';
+  }
+
+  if (languageCode === 'tr') {
+    return 'TR';
+  }
+
+  return 'EN';
+}
+
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const [language, setLanguageState] = useState<Language>(getDefaultLanguage());
 
   useEffect(() => {
-    loadLanguage();
+    void (async () => {
+      const storedLanguage = await getStoredLanguage();
+      if (storedLanguage === 'CN' || storedLanguage === 'EN' || storedLanguage === 'TR') {
+        setLanguageState(storedLanguage);
+      }
+    })();
   }, []);
 
-  const loadLanguage = async () => {
-    const saved = await AsyncStorage.getItem('@yuanly/language');
-    if (saved && ['CN', 'EN', 'TR'].includes(saved)) {
-      setLanguageState(saved as Language);
-    }
-  };
+  const setLanguage = useCallback(async (nextLanguage: Language) => {
+    setLanguageState(nextLanguage);
+    await setStoredLanguage(nextLanguage);
+  }, []);
 
-  const setLanguage = async (lang: Language) => {
-    setLanguageState(lang);
-    await AsyncStorage.setItem('@yuanly/language', lang);
-  };
-
-  const t = (key: string): string => {
-    return translations[language]?.[key] || translations.EN[key] || key;
-  };
-
-  return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
-      {children}
-    </LanguageContext.Provider>
+  const t = useCallback(
+    (key: string, params?: TranslationParams) => translateText(language, key, params),
+    [language],
   );
-};
 
-export const useLanguage = () => useContext(LanguageContext);
+  const value = useMemo(
+    () => ({ language, setLanguage, t }),
+    [language, setLanguage, t],
+  );
+
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
+}
+
+export function useLanguage() {
+  return useContext(LanguageContext);
+}

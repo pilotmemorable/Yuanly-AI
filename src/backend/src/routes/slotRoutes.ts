@@ -1,15 +1,15 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/authMiddleware';
+import { asyncHandler } from '../utils/http';
 import { getAvailableSlots, createSlots, bulkGenerateSlots, deleteSlot } from '../controllers/slotController';
 
 const router = Router();
 
-// Public
-router.get('/available', getAvailableSlots);
+router.get('/available', asyncHandler(getAvailableSlots));
 
-// Protected (merchant only — ownership checked in controller)
-router.post('/', authenticate, createSlots);
-router.post('/bulk', authenticate, bulkGenerateSlots);
-router.delete('/:id', authenticate, deleteSlot);
+// Owning company representative only (ownership verified in the controller)
+router.post('/', authenticate, asyncHandler(createSlots));
+router.post('/bulk', authenticate, asyncHandler(bulkGenerateSlots));
+router.delete('/:id', authenticate, asyncHandler(deleteSlot));
 
 export default router;

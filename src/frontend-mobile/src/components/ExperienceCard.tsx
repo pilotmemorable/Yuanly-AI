@@ -1,131 +1,125 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
-import { COLORS, BORDER_RADIUS } from '../constants/theme';
-import { Star } from 'lucide-react-native';
-
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = 320;
-const CARD_HEIGHT = 480;
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BORDER_RADIUS, COLORS, SPACING } from '../constants/theme';
+import { Experience } from '../types/api';
+import { Language } from '../i18n/translations';
+import { getLocalizedExperienceTitle } from '../utils/experience';
 
 interface ExperienceCardProps {
-  experience: {
-    title: string;
-    price: number;
-    rating: number;
-    thumbnail: string;
-    aiBadge?: string;
-  };
+  experience: Experience;
+  language: Language;
   onPress: () => void;
 }
 
-export const ExperienceCard: React.FC<ExperienceCardProps> = ({ experience, onPress }) => {
+export function ExperienceCard({ experience, language, onPress }: ExperienceCardProps) {
+  const title = getLocalizedExperienceTitle(experience, language);
+  const image = experience.images?.[0];
+
   return (
-    <TouchableOpacity 
-      activeOpacity={0.9} 
-      style={styles.container} 
-      onPress={onPress}
-    >
-      <Image source={{ uri: experience.thumbnail }} style={styles.image} />
-      
-      <View style={styles.overlay}>
-        {experience.aiBadge && (
-          <View style={styles.aiBadge}>
-            <Text style={styles.aiBadgeText}>{experience.aiBadge}</Text>
-          </View>
-        )}
-        
+    <TouchableOpacity activeOpacity={0.92} style={styles.container} onPress={onPress}>
+      {image ? (
+        <Image source={{ uri: image }} style={styles.image} />
+      ) : (
+        <View style={styles.placeholder}>
+          <Text style={styles.placeholderMark}>缘</Text>
+        </View>
+      )}
+
+      <View style={styles.body}>
+        <View style={styles.metaRow}>
+          <Text style={styles.location}>{experience.merchant?.location || 'Türkiye'}</Text>
+          {experience.aiBadge ? <Text style={styles.aiBadge}>{experience.aiBadge}</Text> : null}
+        </View>
+        <Text style={styles.title} numberOfLines={2}>
+          {title}
+        </Text>
+        <Text style={styles.merchant} numberOfLines={1}>
+          {experience.merchant?.businessName}
+        </Text>
+
         <View style={styles.footer}>
-          <View style={styles.textContainer}>
-            <Text style={styles.title} numberOfLines={2}>{experience.title}</Text>
-            <View style={styles.ratingRow}>
-              <Star size={14} color={COLORS.secondary} fill={COLORS.secondary} />
-              <Text style={styles.ratingText}>{experience.rating}</Text>
-            </View>
-          </View>
-          
-          <View style={styles.priceTag}>
-            <Text style={styles.priceText}>¥{experience.price}</Text>
-          </View>
+          <Text style={styles.price}>¥{Number(experience.priceCny || 0)}</Text>
+          <Text style={styles.rating}>★ {Number(experience.rating || 0).toFixed(1)}</Text>
         </View>
       </View>
     </TouchableOpacity>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
+    backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.card,
     overflow: 'hidden',
-    backgroundColor: COLORS.surface,
-    margin: 10,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    marginBottom: SPACING.m,
+    shadowColor: COLORS.shadow,
+    shadowOpacity: 1,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 18,
+    elevation: 4,
   },
   image: {
     width: '100%',
-    height: '100%',
-    position: 'absolute',
+    height: 220,
+    backgroundColor: COLORS.surfaceMuted,
   },
-  overlay: {
-    flex: 1,
+  placeholder: {
+    width: '100%',
+    height: 220,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderMark: {
+    fontSize: 48,
+    fontWeight: '800',
+    color: COLORS.primaryDark,
+  },
+  body: {
+    padding: SPACING.m,
+    gap: SPACING.s,
+  },
+  metaRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 20,
-    backgroundColor: 'rgba(0,0,0,0)', // To be replaced by LinearGradient in real app
+    alignItems: 'center',
   },
-  aiBadge: {
-    backgroundColor: COLORS.glass,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: BORDER_RADIUS.pill,
-    alignSelf: 'flex-start',
-  },
-  aiBadgeText: {
-    color: COLORS.primary,
+  location: {
+    color: COLORS.textSecondary,
     fontSize: 12,
     fontWeight: '600',
+  },
+  aiBadge: {
+    color: COLORS.primaryDark,
+    backgroundColor: COLORS.primarySoft,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.pill,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  title: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  merchant: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  textContainer: {
-    flex: 1,
-    marginRight: 10,
-  },
-  title: {
-    color: COLORS.white,
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: {width: -1, height: 1},
-    textShadowRadius: 10
-  },
-  ratingRow: {
-    flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 4,
   },
-  ratingText: {
-    color: COLORS.white,
-    fontSize: 14,
-    marginLeft: 4,
-    fontWeight: '600',
+  price: {
+    color: COLORS.primaryDark,
+    fontSize: 22,
+    fontWeight: '800',
   },
-  priceTag: {
-    backgroundColor: COLORS.accent,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: BORDER_RADIUS.pill,
-  },
-  priceText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: 'bold',
+  rating: {
+    color: COLORS.secondary,
+    fontWeight: '700',
   },
 });

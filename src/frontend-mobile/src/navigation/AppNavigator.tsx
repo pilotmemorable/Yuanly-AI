@@ -1,104 +1,144 @@
-import React, { useState, useEffect } from 'react';
-import { createStackNavigator } from '@react-navigation/stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
+import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Building, Calendar, MessageCircle, Search, User } from 'lucide-react-native';
 import { ExploreScreen } from '../screens/ExploreScreen';
 import { DetailScreen } from '../screens/DetailScreen';
 import { AIConciergeScreen } from '../screens/AIConciergeScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { LoginScreen } from '../screens/LoginScreen';
-import { PaymentScreen } from '../screens/PaymentScreen';
+import { RegisterScreen } from '../screens/RegisterScreen';
 import { MyTripsScreen } from '../screens/MyTripsScreen';
 import { QRTicketScreen } from '../screens/QRTicketScreen';
+import { BookingSuccessScreen } from '../screens/BookingSuccessScreen';
+import { AuthPromptScreen } from '../screens/AuthPromptScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
+import { ReservationsScreen } from '../screens/ReservationsScreen';
+import { NewReservationScreen } from '../screens/NewReservationScreen';
 import { COLORS } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Search, MessageCircle, User, Calendar } from 'lucide-react-native';
+import { useMerchantReservations } from '../context/MerchantReservationsContext';
 
-const Stack = createStackNavigator();
-const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
+const Tabs = createBottomTabNavigator();
 
-const MainTabs = () => {
+function MainTabs() {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const { pendingCount } = useMerchantReservations();
+
   return (
-    <Tab.Navigator
+    <Tabs.Navigator
       screenOptions={{
-        tabBarStyle: { backgroundColor: COLORS.background, borderTopWidth: 0, elevation: 0, paddingBottom: 5, height: 60 },
-        tabBarActiveTintColor: COLORS.primary,
+        headerShown: false,
+        tabBarActiveTintColor: COLORS.primaryDark,
         tabBarInactiveTintColor: COLORS.textSecondary,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontWeight: '700', fontSize: 11 },
+        tabBarStyle: {
+          backgroundColor: COLORS.surface,
+          borderTopColor: COLORS.border,
+          height: 68,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
       }}
     >
-      <Tab.Screen
+      <Tabs.Screen
         name="Explore"
         component={ExploreScreen}
         options={{
-          tabBarIcon: ({ color }) => <Search color={color} size={24} />,
-          headerShown: false,
           tabBarLabel: t('tab.explore'),
+          tabBarIcon: ({ color, size }) => <Search color={color} size={size} />,
         }}
       />
-      <Tab.Screen
+      {user?.role === 'MERCHANT' ? (
+        <Tabs.Screen
+          name="Reservations"
+          component={ReservationsScreen}
+          options={{
+            tabBarLabel: t('tab.reservations'),
+            tabBarIcon: ({ color, size }) => <Building color={color} size={size} />,
+            tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
+          }}
+        />
+      ) : null}
+      <Tabs.Screen
         name="MyTrips"
         component={MyTripsScreen}
         options={{
-          tabBarIcon: ({ color }) => <Calendar color={color} size={24} />,
-          headerShown: false,
           tabBarLabel: t('tab.trips'),
+          tabBarIcon: ({ color, size }) => <Calendar color={color} size={size} />,
         }}
       />
-      <Tab.Screen
-        name="AI Concierge"
+      <Tabs.Screen
+        name="AIConcierge"
         component={AIConciergeScreen}
         options={{
-          tabBarIcon: ({ color }) => <MessageCircle color={color} size={24} />,
-          headerShown: false,
           tabBarLabel: t('tab.ai'),
+          tabBarIcon: ({ color, size }) => <MessageCircle color={color} size={size} />,
         }}
       />
-      <Tab.Screen
+      <Tabs.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
-          tabBarIcon: ({ color }) => <User color={color} size={24} />,
-          headerShown: false,
           tabBarLabel: t('tab.profile'),
+          tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
         }}
       />
-    </Tab.Navigator>
+    </Tabs.Navigator>
   );
-};
+}
 
-const AuthStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="Login" component={LoginScreen} />
-  </Stack.Navigator>
-);
-
-const AppStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="Main" component={MainTabs} />
-    <Stack.Screen name="Details" component={DetailScreen} />
-    <Stack.Screen name="Payment" component={PaymentScreen} options={{ gestureEnabled: false }} />
-    <Stack.Screen name="QRTicket" component={QRTicketScreen} />
-  </Stack.Navigator>
-);
-
-export const AppNavigator = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+export function AppNavigator() {
+  const { isLoading } = useAuth();
+  const { t } = useLanguage();
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background }}>
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
 
   return (
-    <NavigationContainer>
-      {isAuthenticated ? <AppStack /> : <AuthStack />}
+    <NavigationContainer
+      theme={{
+        ...DefaultTheme,
+        colors: {
+          ...DefaultTheme.colors,
+          background: COLORS.background,
+          card: COLORS.surface,
+          border: COLORS.border,
+          text: COLORS.text,
+          primary: COLORS.primaryDark,
+        },
+      }}
+    >
+      <Stack.Navigator
+        screenOptions={{
+          headerTintColor: COLORS.text,
+          headerTitleStyle: { fontWeight: '700' },
+          headerShadowVisible: false,
+          contentStyle: { backgroundColor: COLORS.background },
+        }}
+      >
+        <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
+        <Stack.Screen name="Detail" component={DetailScreen} options={{ title: t('detail.requestReservation') }} />
+        <Stack.Screen name="BookingSuccess" component={BookingSuccessScreen} options={{ title: t('booking.successTitle'), gestureEnabled: false }} />
+        <Stack.Screen name="QRTicket" component={QRTicketScreen} options={{ title: t('booking.qrTitle') }} />
+        <Stack.Screen name="Login" component={LoginScreen} options={{ title: t('auth.signInTitle'), presentation: 'modal' }} />
+        <Stack.Screen name="Register" component={RegisterScreen} options={{ title: t('auth.registerTitle'), presentation: 'modal' }} />
+        <Stack.Screen name="AuthPrompt" component={AuthPromptScreen} options={{ title: t('auth.signInRequiredTitle'), presentation: 'modal' }} />
+        <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: t('notifications.title') }} />
+        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: t('password.title') }} />
+        <Stack.Screen name="NewReservation" component={NewReservationScreen} options={{ title: t('merchant.createReservationTitle') }} />
+      </Stack.Navigator>
     </NavigationContainer>
   );
-};
+}

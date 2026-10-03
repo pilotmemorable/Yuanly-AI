@@ -1,64 +1,44 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import crypto from 'crypto';
+import { env } from '../config/env';
 
-/**
- * Yuanly AI — Security Middleware Suite
- * Production-grade security for handling user data, payments, and AI interactions
- */
+// Fields that must reach the controllers untouched.
+const RAW_KEYS = new Set(['password', 'currentPassword', 'newPassword']);
 
-// 1. API Key validation for service-to-service communication (AI Agent → Backend)
-const SERVICE_API_KEYS = process.env.SERVICE_API_KEYS?.split(',') || [];
+// Prisma uses parameterised queries, so SQL escaping is unnecessary (and would corrupt data).
+// We only strip HTML tags / control characters from free-text input.
+const clean = (value: string): string =>
+  value
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .trim();
 
-export const validateServiceKey = (req: Request, res: Response, next: NextFunction) => {
-  const apiKey = req.headers['x-api-key'] as string;
-
-  if (!apiKey || !SERVICE_API_KEYS.includes(apiKey)) {
-    return res.status(403).json({
-      error_code: 'ERR_FORBIDDEN',
-      message: 'Invalid or missing service API key'
-    });
+function sanitizeValue(value: any, key?: string): any {
+  if (key && RAW_KEYS.has(key)) return value;
+  if (typeof value === 'string') return clean(value);
+  if (Array.isArray(value)) return value.map((v) => sanitizeValue(v));
+  if (value && typeof value === 'object') {
+    const out: Record<string, any> = {};
+    for (const k of Object.keys(value)) {
+      if (/^[a-zA-Z0-9_]+$/.test(k)) out[k] = sanitizeValue(value[k], k);
+    }
+    return out;
   }
-  next();
-};
+  return value;
+}
 
-// 2. Input sanitization — prevent SQL injection and XSS
-export const sanitizeInput = (req: Request, res: Response, next: NextFunction) => {
-  const sanitize = (obj: any): any => {
-    if (typeof obj === 'string') {
-      // Remove potential SQL injection patterns
-      return obj
-        .replace(/'/g, "''")
-        .replace(/--/g, '')
-        .replace(/;\s*DROP/gi, '')
-        .replace(/;\s*DELETE/gi, '')
-        .replace(/<script[^>]*>.*?<\/script>/gi, '')
-        .replace(/<[^>]+>/g, '')
-        .trim();
-    }
-    if (typeof obj === 'object' && obj !== null) {
-      const sanitized: any = Array.isArray(obj) ? [] : {};
-      for (const key in obj) {
-        if (key.match(/^[a-zA-Z0-9_]+$/)) { // Only allow safe keys
-          sanitized[key] = sanitize(obj[key]);
-        }
-      }
-      return sanitized;
-    }
-    return obj;
-  };
-
-  if (req.body) req.body = sanitize(req.body);
+export const sanitizeInput = (req: Request, _res: Response, next: NextFunction) => {
+  if (req.body && typeof req.body === 'object') req.body = sanitizeValue(req.body);
   if (req.query) {
-    const sanitizedQuery: any = {};
-    for (const key in req.query) {
-      sanitizedQuery[key] = sanitize(req.query[key] as any);
-    }
-    req.query = sanitizedQuery;
+    const q: Record<string, any> = {};
+    for (const k of Object.keys(req.query)) q[k] = sanitizeValue((req.query as any)[k], k);
+    Object.defineProperty(req, 'query', { value: q, writable: true, configurable: true });
   }
   next();
 };
 
-// 3. Request ID for tracing (security audit trail)
 export const requestId = (req: Request, res: Response, next: NextFunction) => {
   const id = crypto.randomUUID();
   req.headers['x-request-id'] = id;
@@ -66,70 +46,49 @@ export const requestId = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
-// 4. Sensitive data encryption helper (for payment tokens, PII)
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'default_encryption_key_32bytes!';
-const IV_LENGTH = 16;
-
-export function encrypt(text: string): string {
-  const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'utf8'), iv);
-  let encrypted = cipher.update(text);
-  encrypted = Buffer.concat([encrypted, cipher.final()]);
-  return iv.toString('hex') + ':' + encrypted.toString('hex');
-}
-
-export function decrypt(text: string): string {
-  const parts = text.split(':');
-  const iv = Buffer.from(parts[0], 'hex');
-  const encryptedText = Buffer.from(parts[1], 'hex');
-  const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'utf8'), iv);
-  let decrypted = decipher.update(encryptedText);
-  decrypted = Buffer.concat([decrypted, decipher.final()]);
-  return decrypted.toString();
-}
-
-// 5. Audit logging for sensitive operations
-export const auditLog = (action: string) => (req: Request, res: Response, next: NextFunction) => {
+export const auditLog = (action: string) => (req: Request, _res: Response, next: NextFunction) => {
   const userId = (req as any).user?.id || 'anonymous';
-  const requestId = req.headers['x-request-id'] as string;
-  console.log(`[AUDIT] ${new Date().toISOString()} | ${action} | user:${userId} | req:${requestId} | ip:${req.ip} | path:${req.path}`);
+  console.log(
+    `[AUDIT] ${new Date().toISOString()} | ${action} | user:${userId} | req:${req.headers['x-request-id']} | ip:${req.ip} | ${req.method} ${req.originalUrl.split('?')[0]}`
+  );
   next();
 };
 
-// 6. CORS strict policy for production
+// Native apps send no Origin header; browsers are only allowed from CORS_ORIGIN (same-origin admin needs nothing).
 export const corsConfig = {
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language', 'X-Request-ID', 'X-API-Key'],
+  origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin) return cb(null, true);
+    if (env.corsOrigins.includes(origin)) return cb(null, true);
+    if (!env.isProd && /^http:\/\/localhost(:\d+)?$/.test(origin)) return cb(null, true);
+    return cb(null, false);
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language', 'X-Request-ID'],
   exposedHeaders: ['X-Request-ID'],
-  maxAge: 86400, // 24 hours
+  maxAge: 86400,
 };
 
-// 7. Rate limiting tiers
 export const rateLimits = {
-  // Auth endpoints — stricter to prevent brute force
   auth: {
     windowMs: 15 * 60 * 1000,
-    max: 10, // 10 attempts per 15 min
-    message: { error: 'Too many authentication attempts' },
+    max: 30,
+    skipSuccessfulRequests: true,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many authentication attempts, try again later', error_code: 'ERR_RATE_LIMIT' },
   },
-  // AI endpoints — moderate to prevent abuse
   ai: {
     windowMs: 60 * 1000,
-    max: 30, // 30 requests per minute
-    message: { error: 'AI rate limit exceeded' },
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'AI rate limit exceeded', error_code: 'ERR_RATE_LIMIT' },
   },
-  // Payment — very strict
-  payment: {
-    windowMs: 60 * 1000,
-    max: 5, // 5 payment attempts per minute
-    message: { error: 'Too many payment requests' },
-  },
-  // Default API
   api: {
     windowMs: 15 * 60 * 1000,
-    max: 100,
-    message: { error: 'Too many requests' },
+    max: 600,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests', error_code: 'ERR_RATE_LIMIT' },
   },
 };

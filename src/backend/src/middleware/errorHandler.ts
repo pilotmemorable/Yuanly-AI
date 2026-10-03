@@ -1,70 +1,35 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
+import { ZodError } from 'zod';
+import { HttpError, zodToHttpError } from '../utils/http';
 
-/**
- * Centralized error handler middleware
- * Catches all unhandled errors and returns standardized error responses
- */
-export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error('[Error]', err);
+export const errorHandler = (err: any, req: Request, res: Response, _next: NextFunction) => {
+  if (err instanceof ZodError) err = zodToHttpError(err);
 
-  // Prisma errors
-  if (err.code === 'P2002') {
-    return res.status(409).json({
-      error_code: 'ERR_DUPLICATE',
-      message: 'A record with this value already exists'
-    });
+  if (err instanceof HttpError) {
+    return res.status(err.status).json({ error: err.message, error_code: err.errorCode, ...(err.extra || {}) });
   }
 
-  if (err.code === 'P2025') {
-    return res.status(404).json({
-      error_code: 'ERR_NOT_FOUND',
-      message: 'Record not found'
-    });
+  if (err?.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Invalid JSON body', error_code: 'ERR_VALIDATION' });
+  }
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request too large', error_code: 'ERR_TOO_LARGE' });
   }
 
-  if (err.code === 'P2003') {
-    return res.status(400).json({
-      error_code: 'ERR_FOREIGN_KEY',
-      message: 'Referenced record does not exist'
-    });
+  if (err?.code === 'P2002') {
+    return res.status(409).json({ error: 'A record with this value already exists', error_code: 'ERR_DUPLICATE' });
+  }
+  if (err?.code === 'P2025') {
+    return res.status(404).json({ error: 'Record not found', error_code: 'ERR_NOT_FOUND' });
+  }
+  if (err?.code === 'P2003') {
+    return res.status(400).json({ error: 'Referenced record does not exist', error_code: 'ERR_FOREIGN_KEY' });
   }
 
-  // Validation errors
-  if (err.name === 'ValidationError') {
-    return res.status(400).json({
-      error_code: 'ERR_VALIDATION',
-      message: err.message
-    });
-  }
-
-  // JWT errors
-  if (err.name === 'JsonWebTokenError') {
-    return res.status(401).json({
-      error_code: 'ERR_INVALID_TOKEN',
-      message: 'Invalid authentication token'
-    });
-  }
-
-  if (err.name === 'TokenExpiredError') {
-    return res.status(401).json({
-      error_code: 'ERR_TOKEN_EXPIRED',
-      message: 'Authentication token has expired'
-    });
-  }
-
-  // Default
-  res.status(err.status || 500).json({
-    error_code: err.errorCode || 'ERR_INTERNAL',
-    message: err.message || 'Internal server error'
-  });
+  console.error(`[Error] ${req.method} ${req.originalUrl.split('?')[0]} req:${req.headers['x-request-id']}`, err);
+  res.status(500).json({ error: 'Internal server error', error_code: 'ERR_INTERNAL' });
 };
 
-/**
- * 404 handler for unmatched routes
- */
 export const notFoundHandler = (req: Request, res: Response) => {
-  res.status(404).json({
-    error_code: 'ERR_NOT_FOUND',
-    message: `Route ${req.method} ${req.path} not found`
-  });
+  res.status(404).json({ error: `Route ${req.method} ${req.path} not found`, error_code: 'ERR_NOT_FOUND' });
 };

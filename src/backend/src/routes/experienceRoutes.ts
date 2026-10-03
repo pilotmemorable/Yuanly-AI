@@ -1,12 +1,15 @@
 import { Router } from 'express';
+import { optionalAuth } from '../middleware/authMiddleware';
+import { asyncHandler } from '../utils/http';
 import { exploreExperiences, getExperienceDetail, searchExperiences, getTrending } from '../controllers/experienceController';
 
 const router = Router();
 
-// All experience routes are public (auth handled optionally in controllers)
-router.get('/explore', exploreExperiences);
-router.get('/trending', getTrending);
-router.get('/search', searchExperiences);
-router.get('/:id', getExperienceDetail);
+router.use(optionalAuth);
+
+router.get('/explore', asyncHandler(exploreExperiences));
+router.get('/trending', asyncHandler(getTrending));
+router.get('/search', asyncHandler(searchExperiences));
+router.get('/:id', asyncHandler(getExperienceDetail));
 
 export default router;

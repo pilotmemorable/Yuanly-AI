@@ -1,16 +1,16 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/authMiddleware';
-import { listBookings, getBookingDetail, holdSlot, confirmBooking, cancelBooking, getQRTicket } from '../controllers/bookingController';
+import { asyncHandler } from '../utils/http';
+import { cancelBooking, createUserBooking, getBookingDetail, getQRTicket, listBookings } from '../controllers/bookingController';
 
 const router = Router();
 
-router.use(authenticate); // All booking routes require auth
+router.use(authenticate);
 
-router.get('/', listBookings);
-router.get('/:id', getBookingDetail);
-router.post('/hold', holdSlot);
-router.post('/confirm', confirmBooking);
-router.post('/:id/cancel', cancelBooking);
-router.get('/:id/qr', getQRTicket);
+router.post('/', asyncHandler(createUserBooking));
+router.get('/', asyncHandler(listBookings));
+router.get('/:id', asyncHandler(getBookingDetail));
+router.post('/:id/cancel', asyncHandler(cancelBooking));
+router.get('/:id/qr', asyncHandler(getQRTicket));
 
 export default router;

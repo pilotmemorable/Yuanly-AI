@@ -1,240 +1,135 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import prisma from '../config/db';
+import { env } from '../config/env';
 import { generateToken } from '../utils/auth';
-import { generateTwoFactorCode } from '../services/twoFactorService';
+import { hashPassword, verifyPassword } from '../utils/password';
+import { HttpError, parse } from '../utils/http';
+import { anonymizeUser, userSelect } from '../services/userService';
 
-// POST /v1/auth/wechat-login — WeChat OAuth login
-export const wechatLogin = async (req: Request, res: Response) => {
-  try {
-    const { wechat_token, device_info } = req.body;
+const email = z.string().trim().toLowerCase().email().max(254);
+const password = z.string().min(8, 'must be at least 8 characters').max(128);
+const language = z.enum(['CN', 'EN', 'TR']);
 
-    if (!wechat_token) {
-      return res.status(400).json({ error: 'wechat_token is required' });
-    }
+const registerSchema = z.object({
+  email,
+  password,
+  fullName: z.string().trim().max(100).optional(),
+  preferredLanguage: language.optional(),
+});
 
-    let user = await prisma.user.findUnique({
-      where: { wechatId: wechat_token }
-    });
+const loginSchema = z.object({ email, password: z.string().min(1).max(128) });
 
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          wechatId: wechat_token,
-          fullName: 'New Traveler',
-          membershipLevel: 'GUEST'
-        }
-      });
-    }
-
-    // Trigger 2FA
-    const tfaCode = generateTwoFactorCode();
-    console.log(`[2FA] Code for user ${user.id}: ${tfaCode}`);
-
-    // In production, send via WeChat template message or SMS
-    res.status(200).json({
-      message: '2FA code sent',
-      userId: user.id,
-      requires2FA: true
-    });
-  } catch (error) {
-    console.error('[Auth] WeChat login error:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-};
-
-// POST /v1/auth/register — Email/phone registration
+// POST /v1/auth/register
 export const register = async (req: Request, res: Response) => {
-  try {
-    const { email, phone, fullName, preferredLanguage = 'CN' } = req.body;
+  const body = parse(registerSchema, req.body);
 
-    if (!email && !phone) {
-      return res.status(400).json({ error: 'Email or phone is required' });
-    }
-
-    // Check for existing user
-    if (email) {
-      const existing = await prisma.user.findUnique({ where: { email } });
-      if (existing) {
-        return res.status(409).json({ error: 'Email already registered' });
-      }
-    }
-
-    const user = await prisma.user.create({
-      data: {
-        email,
-        phone,
-        fullName: fullName || 'New Traveler',
-        preferredLanguage: preferredLanguage as any,
-        membershipLevel: 'GUEST'
-      }
-    });
-
-    // Trigger 2FA
-    const tfaCode = generateTwoFactorCode();
-    console.log(`[2FA] Code for user ${user.id}: ${tfaCode}`);
-
-    res.status(200).json({
-      message: '2FA code sent to your device',
-      userId: user.id,
-      requires2FA: true
-    });
-  } catch (error) {
-    console.error('[Auth] Register error:', error);
-    res.status(500).json({ error: 'Registration failed' });
+  if (body.email === env.adminEmail) {
+    throw new HttpError(403, 'ERR_RESERVED_EMAIL', 'This email address is reserved');
   }
+  const existing = await prisma.user.findUnique({ where: { email: body.email } });
+  if (existing) throw new HttpError(409, 'ERR_EMAIL_TAKEN', 'Email already registered');
+
+  const user = await prisma.user.create({
+    data: {
+      email: body.email,
+      passwordHash: await hashPassword(body.password),
+      fullName: body.fullName || null,
+      preferredLanguage: body.preferredLanguage || 'CN',
+      role: 'USER',
+    },
+    select: userSelect,
+  });
+
+  res.status(201).json({ token: generateToken(user.id, user.role), user });
 };
 
-// POST /v1/auth/verify-2fa — Verify 2FA and issue JWT
-export const verify2FA = async (req: Request, res: Response) => {
-  try {
-    const { userId, code } = req.body;
-
-    if (!userId || !code) {
-      return res.status(400).json({ error: 'userId and code are required' });
-    }
-
-    // In production, verify against stored code in Redis
-    // For development, accept "123456"
-    if (code === '123456') {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          email: true,
-          phone: true,
-          wechatId: true,
-          fullName: true,
-          avatar: true,
-          membershipLevel: true,
-          preferredLanguage: true,
-          trustScore: true,
-          role: true
-        }
-      });
-
-      if (!user) return res.status(404).json({ error: 'User not found' });
-
-      const token = generateToken(user.id);
-      res.status(200).json({ token, user });
-    } else {
-      res.status(401).json({ error: 'Invalid 2FA code' });
-    }
-  } catch (error) {
-    console.error('[Auth] 2FA verify error:', error);
-    res.status(500).json({ error: 'Verification failed' });
+// POST /v1/auth/login
+export const login = async (req: Request, res: Response) => {
+  const body = parse(loginSchema, req.body);
+  const found = await prisma.user.findUnique({ where: { email: body.email } });
+  const ok = await verifyPassword(body.password, found?.passwordHash);
+  if (!found || !ok || !found.isActive) {
+    throw new HttpError(401, 'ERR_INVALID_CREDENTIALS', 'Invalid email or password');
   }
+  // Defence in depth: only the configured address may hold the ADMIN role.
+  if (found.role === 'ADMIN' && found.email !== env.adminEmail) {
+    throw new HttpError(403, 'ERR_FORBIDDEN', 'Not authorized');
+  }
+  const user = await prisma.user.findUnique({ where: { id: found.id }, select: userSelect });
+  res.status(200).json({ token: generateToken(found.id, found.role), user });
 };
 
-// GET /v1/auth/me — Get current user profile
+// GET /v1/auth/me
 export const getProfile = async (req: Request, res: Response) => {
-  try {
-    const userId = (req as any).user?.id;
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        phone: true,
-        wechatId: true,
-        fullName: true,
-        avatar: true,
-        membershipLevel: true,
-        preferredLanguage: true,
-        trustScore: true,
-        travelStyle: true,
-        role: true,
-        createdAt: true,
-        _count: {
-          select: { bookings: true, reviews: true }
-        }
-      }
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    res.status(200).json({ user });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch profile' });
-  }
+  const userId = (req as any).user.id;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { ...userSelect, _count: { select: { bookings: true, reviews: true } } },
+  });
+  if (!user) throw new HttpError(404, 'ERR_NOT_FOUND', 'User not found');
+  res.status(200).json({ user });
 };
 
-// PUT /v1/auth/me — Update user profile
+const updateSchema = z.object({
+  fullName: z.string().trim().min(1).max(100).optional(),
+  phone: z.string().trim().max(32).optional(),
+  preferredLanguage: language.optional(),
+  travelStyle: z.string().trim().max(50).optional(),
+});
+
+// PUT /v1/auth/me
 export const updateProfile = async (req: Request, res: Response) => {
-  try {
-    const userId = (req as any).user?.id;
-    const { fullName, avatar, preferredLanguage, travelStyle, phone, email } = req.body;
-
-    const updated = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        ...(fullName && { fullName }),
-        ...(avatar && { avatar }),
-        ...(preferredLanguage && { preferredLanguage: preferredLanguage as any }),
-        ...(travelStyle && { travelStyle }),
-        ...(phone && { phone }),
-        ...(email && { email })
-      },
-      select: {
-        id: true,
-        email: true,
-        phone: true,
-        fullName: true,
-        avatar: true,
-        membershipLevel: true,
-        preferredLanguage: true,
-        travelStyle: true
-      }
-    });
-
-    res.status(200).json({ user: updated });
-  } catch (error) {
-    console.error('[Auth] Update profile error:', error);
-    res.status(500).json({ error: 'Failed to update profile' });
-  }
+  const userId = (req as any).user.id;
+  const body = parse(updateSchema, req.body);
+  const user = await prisma.user.update({ where: { id: userId }, data: body, select: userSelect });
+  res.status(200).json({ user });
 };
 
-// GET /v1/auth/me/notifications — Get user notifications
+const changePasswordSchema = z.object({ currentPassword: z.string().min(1).max(128), newPassword: password });
+
+// POST /v1/auth/change-password
+export const changePassword = async (req: Request, res: Response) => {
+  const userId = (req as any).user.id;
+  const body = parse(changePasswordSchema, req.body);
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !(await verifyPassword(body.currentPassword, user.passwordHash))) {
+    throw new HttpError(401, 'ERR_INVALID_CREDENTIALS', 'Current password is incorrect');
+  }
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash: await hashPassword(body.newPassword) } });
+  res.status(200).json({ message: 'Password updated' });
+};
+
+// DELETE /v1/auth/me
+export const deleteAccount = async (req: Request, res: Response) => {
+  const authUser = (req as any).user;
+  const body = parse(z.object({ password: z.string().min(1).max(128) }), req.body);
+  if (authUser.role === 'ADMIN') throw new HttpError(403, 'ERR_FORBIDDEN', 'The admin account cannot be deleted');
+  const user = await prisma.user.findUnique({ where: { id: authUser.id } });
+  if (!user || !(await verifyPassword(body.password, user.passwordHash))) {
+    throw new HttpError(401, 'ERR_INVALID_CREDENTIALS', 'Password is incorrect');
+  }
+  await anonymizeUser(user.id);
+  res.status(200).json({ message: 'Account deleted' });
+};
+
+// GET /v1/auth/me/notifications
 export const getNotifications = async (req: Request, res: Response) => {
-  try {
-    const userId = (req as any).user?.id;
-    const { unreadOnly, page = 1, limit = 20 } = req.query;
-
-    const notifications = await prisma.notification.findMany({
-      where: {
-        userId,
-        ...(unreadOnly === 'true' && { isRead: false })
-      },
-      orderBy: { createdAt: 'desc' },
-      skip: (Number(page) - 1) * Number(limit),
-      take: Number(limit)
-    });
-
-    const unreadCount = await prisma.notification.count({
-      where: { userId, isRead: false }
-    });
-
-    res.status(200).json({ notifications, unreadCount });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch notifications' });
-  }
+  const userId = (req as any).user.id;
+  const { unreadOnly, page = 1, limit = 30 } = req.query;
+  const notifications = await prisma.notification.findMany({
+    where: { userId, ...(unreadOnly === 'true' && { isRead: false }) },
+    orderBy: { createdAt: 'desc' },
+    skip: (Number(page) - 1) * Number(limit),
+    take: Math.min(Number(limit) || 30, 100),
+  });
+  const unreadCount = await prisma.notification.count({ where: { userId, isRead: false } });
+  res.status(200).json({ notifications, unreadCount });
 };
 
-// PUT /v1/auth/me/notifications/:id/read — Mark notification as read
+// PUT /v1/auth/me/notifications/:id/read
 export const markNotificationRead = async (req: Request, res: Response) => {
-  try {
-    const userId = (req as any).user?.id;
-    const { id } = req.params;
-
-    await prisma.notification.updateMany({
-      where: { id, userId },
-      data: { isRead: true }
-    });
-
-    res.status(200).json({ message: 'Notification marked as read' });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to update notification' });
-  }
+  const userId = (req as any).user.id;
+  await prisma.notification.updateMany({ where: { id: req.params.id, userId }, data: { isRead: true } });
+  res.status(200).json({ message: 'Notification marked as read' });
 };

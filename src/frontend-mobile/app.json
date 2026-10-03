@@ -1,48 +1,52 @@
 {
   "expo": {
-    "name": "Yuanly AI",
+    "name": "Yuanly 缘旅",
     "slug": "yuanly-backend",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "yuanly",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "backgroundColor": "#40E0D0"
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "bundleIdentifier": "com.yuanly.ai",
       "supportsTablet": true,
       "buildNumber": "1",
       "infoPlist": {
         "CFBundleDisplayName": "Yuanly",
-        "NSCameraUsageDescription": "Yuanly needs camera access to scan QR tickets and take review photos.",
-        "NSPhotoLibraryUsageDescription": "Yuanly needs photo library access to upload review photos.",
-        "NSMicrophoneUsageDescription": "Yuanly needs microphone access for voice translation and AI concierge.",
-        "NSLocationWhenInUseUsageDescription": "Yuanly uses your location to recommend nearby experiences in Turkey.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleAllowMixedLocalizations": true,
+        "CFBundleDevelopmentRegion": "en",
+        "CFBundleLocalizations": [
+          "zh-Hans",
+          "en",
+          "tr"
+        ]
       }
     },
     "android": {
       "package": "com.yuanly.ai",
       "versionCode": 1,
-      "permissions": [
-        "CAMERA",
-        "RECORD_AUDIO",
-        "ACCESS_FINE_LOCATION",
-        "VIBRATE"
-      ]
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "apiUrl": "https://api.yuanly.ai/v1",
+      "apiUrl": "https://REPLACE_ME_API_HOST/v1",
       "eas": {
         "projectId": "517b0337-e186-440c-b6c9-b724f2a75a79"
       }
-    },
-    "updates": {
-      "fallbackToCacheTimeout": 0
-    },
-    "runtimeVersion": {
-      "policy": "sdkVersion"
     }
   }
 }

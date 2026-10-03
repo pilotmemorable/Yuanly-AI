@@ -1,14 +1,16 @@
 import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
+import { env } from '../config/env';
 
-dotenv.config();
+export interface TokenPayload {
+  id: string;
+  role: string;
+}
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default_secret_key';
-
-export const generateToken = (userId: string): string => {
-  return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '7d' });
+export const generateToken = (userId: string, role: string): string => {
+  const expiresIn = role === 'ADMIN' ? '12h' : '30d';
+  return jwt.sign({ id: userId, role }, env.jwtSecret, { expiresIn, algorithm: 'HS256' });
 };
 
-export const verifyToken = (token: string) => {
-  return jwt.verify(token, JWT_SECRET);
+export const verifyToken = (token: string): TokenPayload => {
+  return jwt.verify(token, env.jwtSecret, { algorithms: ['HS256'] }) as TokenPayload;
 };

@@ -1,13 +1,14 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/authMiddleware';
+import { optionalAuth } from '../middleware/authMiddleware';
 import { handleVoiceInteraction, handleTranslation, handleVoiceMessage, getRecommendations } from '../controllers/aiController';
 
 const router = Router();
 
-// Auth required for AI routes
-router.post('/interact', authenticate, handleVoiceInteraction);
+router.use(optionalAuth);
+
+router.post('/interact', handleVoiceInteraction);
 router.post('/translate', handleTranslation);
-router.post('/voice', authenticate, handleVoiceMessage);
-router.get('/recommend', authenticate, getRecommendations);
+router.post('/voice', handleVoiceMessage);
+router.get('/recommend', getRecommendations);
 
 export default router;

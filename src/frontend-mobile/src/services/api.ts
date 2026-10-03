@@ -1,218 +1,273 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_BASE_URL } from './config';
+import { getStoredLanguage, sessionStorage } from './storage';
+import { Language, translateText } from '../i18n/translations';
+import { BookingStatus, LanguageCode, User } from '../types/api';
 
-// API Configuration
-const API_BASE_URL = __DEV__
-  ? 'http://localhost:5000/v1'
-  : 'https://api.yuanly.ai/v1';
+export type AuthMode = 'none' | 'optional' | 'required';
 
-// Token storage keys
-const TOKEN_KEY = '@yuanly/auth_token';
-const USER_KEY = '@yuanly/user_data';
-const LANG_KEY = '@yuanly/language';
+type UnauthorizedHandler = () => Promise<void> | void;
 
-// Request helper
-async function request<T = any>(
-  endpoint: string,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
-  body?: any,
-  requiresAuth = true
-): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
+const ERROR_TRANSLATION_KEYS: Record<string, string> = {
+  ERR_NETWORK: 'common.networkError',
+  ERR_INVALID_CREDENTIALS: 'auth.invalidCredentials',
+  ERR_EMAIL_TAKEN: 'auth.emailTaken',
+  ERR_SLOT_TAKEN: 'booking.slotTaken',
+  ERR_CAPACITY_FULL: 'booking.capacityFull',
+  ERR_INVALID_TRANSITION: 'merchant.invalidTransition',
+  ERR_UNAUTHENTICATED: 'auth.signInRequiredMessage',
+};
 
-  // Get language preference
-  const lang = await AsyncStorage.getItem(LANG_KEY);
-  if (lang) {
-    headers['Accept-Language'] = lang.toLowerCase();
-  }
+export class ApiError extends Error {
+  status: number;
+  errorCode?: string;
+  details?: unknown;
 
-  // Attach auth token if required
-  if (requiresAuth) {
-    const token = await AsyncStorage.getItem(TOKEN_KEY);
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-  }
-
-  const url = `${API_BASE_URL}${endpoint}`;
-  const config: RequestInit = {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  };
-
-  try {
-    const response = await fetch(url, config);
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw {
-        status: response.status,
-        message: data.message || data.error || 'Request failed',
-        errorCode: data.error_code,
-        data: data,
-      };
-    }
-
-    return data;
-  } catch (error: any) {
-    if (error.errorCode) throw error;
-    throw { status: 0, message: 'Network error', errorCode: 'ERR_NETWORK' };
+  constructor(status: number, message: string, errorCode?: string, details?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.errorCode = errorCode;
+    this.details = details;
   }
 }
 
-// Auth API
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+export function setApiUnauthorizedHandler(handler: UnauthorizedHandler | null) {
+  unauthorizedHandler = handler;
+}
+
+function normalizeLanguage(value: string | null | undefined): Language {
+  if (value === 'CN' || value === 'EN' || value === 'TR') {
+    return value;
+  }
+
+  return 'EN';
+}
+
+async function getCurrentLanguage() {
+  return normalizeLanguage(await getStoredLanguage());
+}
+
+function getAcceptLanguage(language: Language) {
+  if (language === 'CN') {
+    return 'zh';
+  }
+
+  return language.toLowerCase();
+}
+
+function localizeErrorMessage(language: Language, errorCode?: string, fallback?: string, status?: number) {
+  const translationKey = errorCode ? ERROR_TRANSLATION_KEYS[errorCode] : undefined;
+  if (translationKey) {
+    return translateText(language, translationKey);
+  }
+
+  if (status === 401) {
+    return translateText(language, 'errors.unauthorized');
+  }
+
+  if (status === 403) {
+    return fallback || translateText(language, 'errors.forbidden');
+  }
+
+  return fallback || translateText(language, 'common.error');
+}
+
+function buildQuery(params?: Record<string, string | number | boolean | undefined | null>) {
+  if (!params) {
+    return '';
+  }
+
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') {
+      return;
+    }
+
+    searchParams.append(key, String(value));
+  });
+
+  const query = searchParams.toString();
+  return query ? `?${query}` : '';
+}
+
+function parseResponseBody(rawBody: string, contentType: string | null) {
+  if (!rawBody) {
+    return null;
+  }
+
+  const looksLikeJson = contentType?.includes('application/json') || rawBody.trim().startsWith('{') || rawBody.trim().startsWith('[');
+
+  if (!looksLikeJson) {
+    return rawBody;
+  }
+
+  try {
+    return JSON.parse(rawBody);
+  } catch {
+    return rawBody;
+  }
+}
+
+interface RequestOptions {
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  body?: unknown;
+  authMode?: AuthMode;
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { method = 'GET', body, authMode = 'none' } = options;
+  const language = await getCurrentLanguage();
+  const token = await sessionStorage.getToken();
+
+  if (authMode === 'required' && !token) {
+    throw new ApiError(401, translateText(language, 'auth.signInRequiredMessage'), 'ERR_UNAUTHENTICATED');
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Accept-Language': getAcceptLanguage(language),
+  };
+
+  if (body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  if (token && authMode !== 'none') {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+
+    const rawBody = await response.text();
+    const parsedBody = parseResponseBody(rawBody, response.headers.get('content-type'));
+
+    if (!response.ok) {
+      const errorCode = typeof parsedBody === 'object' && parsedBody !== null ? (parsedBody as any).error_code : undefined;
+      const fallbackMessage =
+        typeof parsedBody === 'object' && parsedBody !== null
+          ? (parsedBody as any).error || (parsedBody as any).message
+          : typeof parsedBody === 'string'
+            ? parsedBody
+            : undefined;
+
+      if (response.status === 401 && token && authMode !== 'none') {
+        await unauthorizedHandler?.();
+      }
+
+      throw new ApiError(
+        response.status,
+        localizeErrorMessage(language, errorCode, fallbackMessage, response.status),
+        errorCode,
+        parsedBody,
+      );
+    }
+
+    return (parsedBody ?? {}) as T;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError(0, translateText(language, 'common.networkError'), 'ERR_NETWORK');
+    }
+
+    throw new ApiError(0, translateText(language, 'common.networkError'), 'ERR_NETWORK');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function isApiError(error: unknown): error is ApiError {
+  return error instanceof ApiError;
+}
+
+export function getErrorMessage(error: unknown) {
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Unknown error';
+}
+
 export const authAPI = {
-  wechatLogin: (wechat_token: string) =>
-    request('/auth/wechat-login', 'POST', { wechat_token }, false),
-
-  register: (data: { email?: string; phone?: string; fullName?: string; preferredLanguage?: string }) =>
-    request('/auth/register', 'POST', data, false),
-
-  verify2FA: (userId: string, code: string) =>
-    request('/auth/verify-2fa', 'POST', { userId, code }, false),
-
-  getProfile: () => request('/auth/me'),
-  updateProfile: (data: any) => request('/auth/me', 'PUT', data),
+  login: (data: { email: string; password: string }) =>
+    request<{ token: string; user: User }>('/auth/login', { method: 'POST', body: data }),
+  register: (data: { email: string; password: string; fullName: string; preferredLanguage: LanguageCode }) =>
+    request<{ token: string; user: User }>('/auth/register', { method: 'POST', body: data }),
+  getMe: () => request<{ user: User }>('/auth/me', { authMode: 'required' }),
+  updateMe: (data: Partial<Pick<User, 'fullName' | 'phone' | 'preferredLanguage' | 'travelStyle'>>) =>
+    request<{ user: User }>('/auth/me', { method: 'PUT', body: data, authMode: 'required' }),
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    request<{ message: string }>('/auth/change-password', { method: 'POST', body: data, authMode: 'required' }),
+  deleteMe: (data: { password: string }) =>
+    request<{ message: string }>('/auth/me', { method: 'DELETE', body: data, authMode: 'required' }),
   getNotifications: (unreadOnly?: boolean) =>
-    request(`/auth/me/notifications${unreadOnly ? '?unreadOnly=true' : ''}`),
+    request<{ notifications: any[]; unreadCount: number }>(`/auth/me/notifications${buildQuery({ unreadOnly })}`, { authMode: 'required' }),
   markNotificationRead: (id: string) =>
-    request(`/auth/me/notifications/${id}/read`, 'PUT'),
+    request<{ message: string }>(`/auth/me/notifications/${id}/read`, { method: 'PUT', authMode: 'required' }),
 };
 
-// Experience API
 export const experienceAPI = {
-  explore: (params?: { vibe?: string; location?: string; sort?: string; page?: number; limit?: number }) => {
-    const query = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([k, v]) => v && query.append(k, String(v)));
-    }
-    return request(`/experiences/explore${query.toString() ? '?' + query.toString() : ''}`);
-  },
-
-  getDetail: (id: string) => request(`/experiences/${id}`),
-
-  search: (q: string) => request(`/experiences/search?q=${encodeURIComponent(q)}`),
-
-  trending: (limit?: number) => request(`/experiences/trending${limit ? '?limit=' + limit : ''}`),
+  explore: (params?: { vibe?: string; location?: string; category?: string; sort?: string; page?: number; limit?: number }) =>
+    request<{ experiences: any[]; pagination?: any }>(`/experiences/explore${buildQuery(params)}`),
+  search: (query: string) =>
+    request<{ experiences: any[]; query: string; count: number }>(`/experiences/search${buildQuery({ q: query })}`),
+  getDetail: (id: string) => request<{ experience: any }>(`/experiences/${id}`),
+  getAvailableSlots: (experienceId: string, date?: string) =>
+    request<{ slots: any[]; count: number }>(`/slots/available${buildQuery({ experienceId, date })}`),
 };
 
-// Booking API
 export const bookingAPI = {
-  list: (status?: string, page?: number) =>
-    request(`/bookings${status ? '?status=' + status : ''}${page ? '&page=' + page : ''}`),
-
-  getDetail: (id: string) => request(`/bookings/${id}`),
-
-  holdSlot: (experienceId: string, slotId: string, guestCount?: number) =>
-    request('/bookings/hold', 'POST', { experienceId, slotId, guestCount }),
-
-  confirm: (bookingId: string, paymentRef: string) =>
-    request('/bookings/confirm', 'POST', { bookingId, paymentRef }),
-
+  create: (data: { experienceId: string; slotId: string; guestCount: number; guestName?: string; guestPhone?: string; notes?: string }) =>
+    request<{ booking: any }>('/bookings', { method: 'POST', body: data, authMode: 'required' }),
+  list: (params?: { status?: BookingStatus; page?: number; limit?: number }) =>
+    request<{ bookings: any[]; pagination?: any }>(`/bookings${buildQuery(params)}`, { authMode: 'required' }),
+  getById: (id: string) => request<{ booking: any }>(`/bookings/${id}`, { authMode: 'required' }),
   cancel: (id: string, reason?: string) =>
-    request(`/bookings/${id}/cancel`, 'POST', { reason }),
-
-  getQR: (id: string) => request(`/bookings/${id}/qr`),
+    request<{ booking: any }>(`/bookings/${id}/cancel`, { method: 'POST', body: { reason }, authMode: 'required' }),
+  getQr: (id: string) => request<{ qrCode: string; booking: any }>(`/bookings/${id}/qr`, { authMode: 'required' }),
 };
 
-// Payment API
-export const paymentAPI = {
-  initiate: (bookingId: string, method: string) =>
-    request('/payment/initiate', 'POST', { bookingId, method }),
-
-  getStatus: (id: string) => request(`/payment/${id}/status`),
-
-  refund: (id: string, reason?: string) =>
-    request(`/payment/${id}/refund`, 'POST', { reason }),
-};
-
-// Slot API
-export const slotAPI = {
-  getAvailable: (experienceId: string, date?: string) =>
-    request(`/slots/available?experienceId=${experienceId}${date ? '&date=' + date : ''}`),
-};
-
-// Review API
-export const reviewAPI = {
-  getByExperience: (experienceId: string, page?: number) =>
-    request(`/reviews/experience/${experienceId}${page ? '?page=' + page : ''}`),
-
-  getByUser: (userId: string) => request(`/reviews/user/${userId}`),
-
-  create: (data: { bookingId: string; rating: number; comment?: string; mediaUrls?: string[] }) =>
-    request('/reviews', 'POST', data),
-};
-
-// AI API — Dual-language responses (original + translation)
-export const aiAPI = {
-  interact: (text: string, language?: string, context?: any, voiceData?: string) =>
-    request('/ai/interact', 'POST', { text, language, context, voiceData }),
-
-  translate: (text: string, from?: string, to?: string) =>
-    request('/ai/translate', 'POST', { text, from, to }),
-
-  voice: (audioData: string, spokenLanguage?: string, userLanguage?: string, context?: any) =>
-    request('/ai/voice', 'POST', { audioData, spokenLanguage, userLanguage, context }),
-
-  recommend: (limit?: number) => request(`/ai/recommend${limit ? '?limit=' + limit : ''}`),
-};
-
-// Merchant API
 export const merchantAPI = {
-  list: (params?: { category?: string; location?: string; verified?: boolean }) => {
-    const query = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([k, v]) => {
-        if (v !== undefined) query.append(k, String(v));
-      });
-    }
-    return request(`/merchants${query.toString() ? '?' + query.toString() : ''}`);
-  },
-
-  get: (id: string) => request(`/merchants/${id}`),
-
-  register: (data: any) => request('/merchants/register', 'POST', data),
-
-  update: (id: string, data: any) => request(`/merchants/${id}`, 'PUT', data),
-
-  dashboard: (id: string) => request(`/merchants/${id}/dashboard`),
-
-  createExperience: (merchantId: string, data: any) =>
-    request(`/merchants/${merchantId}/experiences`, 'POST', data),
-
-  updateExperience: (merchantId: string, expId: string, data: any) =>
-    request(`/merchants/${merchantId}/experiences/${expId}`, 'PUT', data),
-
-  deleteExperience: (merchantId: string, expId: string) =>
-    request(`/merchants/${merchantId}/experiences/${expId}`, 'DELETE'),
+  getMe: () => request<any>('/merchant/me', { authMode: 'required' }),
+  listBookings: (params?: { status?: BookingStatus; scope?: 'upcoming' | 'past'; date?: string; page?: number; limit?: number }) =>
+    request<{ bookings: any[]; pagination?: any; counts?: Record<string, number> }>(`/merchant/bookings${buildQuery(params)}`, {
+      authMode: 'required',
+    }),
+  createBooking: (data: {
+    experienceId: string;
+    startTime: string;
+    guestCount: number;
+    guestName: string;
+    guestPhone?: string;
+    notes?: string;
+    status?: 'CONFIRMED' | 'PENDING';
+  }) => request<{ booking: any }>('/merchant/bookings', { method: 'POST', body: data, authMode: 'required' }),
+  updateBookingStatus: (id: string, data: { status: BookingStatus; reason?: string }) =>
+    request<{ booking: any }>(`/merchant/bookings/${id}/status`, { method: 'PUT', body: data, authMode: 'required' }),
 };
 
-// Token management
-export const tokenManager = {
-  save: async (token: string, user: any) => {
-    await AsyncStorage.setItem(TOKEN_KEY, token);
-    await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
-  },
-
-  getToken: async () => AsyncStorage.getItem(TOKEN_KEY),
-
-  getUser: async () => {
-    const userStr = await AsyncStorage.getItem(USER_KEY);
-    return userStr ? JSON.parse(userStr) : null;
-  },
-
-  clear: async () => {
-    await AsyncStorage.removeItem(TOKEN_KEY);
-    await AsyncStorage.removeItem(USER_KEY);
-  },
-
-  saveLanguage: async (lang: string) => {
-    await AsyncStorage.setItem(LANG_KEY, lang);
-  },
-
-  getLanguage: async () => AsyncStorage.getItem(LANG_KEY),
+export const aiAPI = {
+  interact: (data: { text: string; language?: string; context?: unknown }) =>
+    request<{ intent?: string; userLanguage?: string; message?: any; data?: any; timestamp?: string }>('/ai/interact', {
+      method: 'POST',
+      body: data,
+      authMode: 'optional',
+    }),
 };
-
-export { API_BASE_URL };

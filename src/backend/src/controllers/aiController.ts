@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/db';
+import { parseArrayField } from '../utils/json';
+import { formatIstanbul } from '../utils/time';
 import {
   detectLanguage,
   createDualLanguageMessage,
@@ -11,11 +13,7 @@ import {
 
 // SQLite compatibility: Prisma SQLite stores string arrays and Json fields
 // as plain TEXT, so they must be serialized on write and parsed on read.
-function parseArrayField(value: any): string[] {
-  if (!value) return [];
-  if (Array.isArray(value)) return value;
-  try { return JSON.parse(value); } catch { return []; }
-}
+const PUBLIC_EXPERIENCE = { isActive: true, merchant: { isActive: true, isVerified: true } } as const;
 
 function parseMetadata(value: any): any {
   if (!value) return {};
@@ -220,8 +218,8 @@ export const getRecommendations = async (req: Request, res: Response) => {
     // SQLite has no array column support (`hasSome` unsupported) —
     // fetch all active experiences and match tags in JavaScript
     const allExperiences = await prisma.experience.findMany({
-      where: { isActive: true },
-      include: { merchant: true },
+      where: PUBLIC_EXPERIENCE,
+      include: { merchant: { select: { id: true, businessName: true, location: true, category: true } } },
       orderBy: { rating: 'desc' }
     });
 
@@ -232,6 +230,8 @@ export const getRecommendations = async (req: Request, res: Response) => {
 
     const enriched = experiences.slice(0, Number(limit)).map(exp => ({
       ...exp,
+      images: parseArrayField(exp.images),
+      tags: parseArrayField(exp.tags),
       aiBadge: generateAIBadge(exp, userTags)
     }));
 
@@ -289,8 +289,8 @@ async function generateResponse(intent: any, userLanguage: Language, userId?: st
       // SQLite: tags are stored as JSON strings — fetch all active
       // experiences and filter by tags in JavaScript
       const allExperiences = await prisma.experience.findMany({
-        where: { isActive: true },
-        include: { merchant: true }
+        where: PUBLIC_EXPERIENCE,
+        include: { merchant: { select: { businessName: true, location: true } } }
       });
       const requestedTags: string[] = intent.tags?.length ? intent.tags : [];
       const experiences = requestedTags.length > 0
@@ -303,15 +303,19 @@ async function generateResponse(intent: any, userLanguage: Language, userId?: st
     case 'book_experience': {
       const experience = await prisma.experience.findFirst({
         where: {
-          isActive: true,
-          title: { contains: intent.activity || '' } // SQLite is case-insensitive by default
+          ...PUBLIC_EXPERIENCE,
+          OR: [
+            { title: { contains: intent.activity || '', mode: 'insensitive' } },
+            { titleCn: { contains: intent.activity || '', mode: 'insensitive' } },
+            { titleTr: { contains: intent.activity || '', mode: 'insensitive' } },
+          ]
         },
-        include: { slots: { where: { status: 'AVAILABLE' }, take: 3 } }
+        include: { slots: { where: { status: 'AVAILABLE', startTime: { gt: new Date() } }, orderBy: { startTime: 'asc' }, take: 3 } }
       });
       if (experience) {
         return formatBookingResponse(experience, userLanguage);
       }
-      const alternatives = await prisma.experience.findMany({ where: { isActive: true }, take: 3 });
+      const alternatives = await prisma.experience.findMany({ where: PUBLIC_EXPERIENCE, take: 3 });
       return formatAlternativesResponse(alternatives, userLanguage);
     }
 
@@ -352,10 +356,7 @@ function formatBookingResponse(experience: any, language: Language): string {
 
   const slotsText = experience.slots?.length > 0
     ? experience.slots.map((s: any) => {
-        const date = new Date(s.startTime);
-        return language === 'CN'
-          ? `• ${date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
-          : `• ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+        return `• ${formatIstanbul(s.startTime)}`;
       }).join('\n')
     : getLocalizedText('how_can_help', language);
 
