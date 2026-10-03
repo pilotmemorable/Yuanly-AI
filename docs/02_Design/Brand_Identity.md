@@ -1,32 +1,27 @@
-# Yuanly Brand Identity & Emotional Soul
+# Yuanly AI - Final Brand Identity (Chinese Market Priority)
 
-## 1. The Core Essence: "Yuan (缘)"
-Yuanly is not just a tool; it is a "Digital Connection". The brand must evoke the feeling of a destined encounter between a traveler and the magic of Turkey.
+## 1. The Final Visual Face
+The official visual identity of Yuanly is locked. The "Harmonious Flow" concept—the intertwining of the Turquoise Wave (Turkey) and the Golden Silk Ribbon (China)—is the face of the brand across all platforms.
 
-### Emotional Keywords
-- **Destiny (Yuan):** Fated, mystical, welcoming.
-- **Elegance:** Minimalist, high-end, sophisticated.
-- **Intelligence:** AI-driven, intuitive, frictionless.
-- **Contrast:** The fusion of ancient Silk Road history with futuristic AI technology.
+### Brand Assets
+- **Primary Logo:** The intertwined 'Y' symbol combined with prestige Chinese calligraphy **'缘旅' (Yuanly)** and the slogan **'缘起之旅，心之相连'**.
+- **App Icon:** The standalone 'Y' symbol on a pearlescent white background (Apple App Store Standard).
+- **Web Banner:** Wide-format composition of the logo and brand name for luxury digital presence.
 
-## 2. Visual Language (The "Rednote" Aesthetic)
-To attract the 16-46 age group, we adopt a "Lifestyle-First" visual approach.
+## 2. Language Architecture (Crucial Priority)
+Yuanly is designed as a bridge. To maximize trust and conversion for the target audience (16-46 year old Chinese tourists), the following language hierarchy is strictly enforced:
 
-### Color Palette
-- **Celestial Turquoise (#40E0D0):** Representing the Turkish Riviera and the "Azure" coast. (Primary)
-- **Imperial Red (#C41E3A):** A nod to the Chinese flag and passion. Used sparingly for CTA buttons. (Accent)
-- **Pure Alabaster (#F8F9FA):** White space, cleanliness, and minimalism. (Background)
-- **Deep Charcoal (#333333):** High-contrast typography for readability. (Text)
+**Priority 1: Simplified Chinese (简体中文)** $\rightarrow$ **Priority 2: English (English)** $\rightarrow$ **Priority 3: Turkish (Türkçe)**
 
-### Typography
-- **English/Latin:** A clean, geometric sans-serif (e.g., *Montserrat* or *Inter*) for a modern, tech-forward feel.
-- **Chinese:** A balanced, modern Hei-style font (e.g., *Noto Sans SC*) to ensure readability and professionalism.
+### Implementation Rules
+- **Auto-Detection:** The app must check system locale upon launch. If `zh-CN` is detected, the entire UI defaults to Simplified Chinese.
+- **AI-Concierge:** The voice and text AI must prioritize Mandarin Chinese, utilizing the elegance and politeness of high-end Chinese service culture.
+- **Content Generation:** All descriptions, vouchers, and marketing materials are authored in Chinese first, then translated to English for global accessibility.
 
-## 3. User Interaction Principles (UX)
-- **Card-Based Discovery:** Use "Experience Cards" with high-resolution images, similar to Xiaohongshu.
-- **AI-First Entry:** A prominent "Ask Yuanly" AI bar for instant bookings and queries.
-- **Fluidity:** Gesture-based navigation (swiping) instead of heavy menus.
-
-## 4. Voice & Tone
-- **To the Tourist:** Helpful, inspiring, poetic yet efficient. ("Your destiny in Turkey awaits.")
-- **To the Merchant:** Professional, empowering, growth-oriented. ("Grow your business with the world's most intelligent tourist bridge.")
+## 3. Visual Standards
+- **Color Palette:**
+    - **Celestial Turquoise (#40E0D0):** Turkey's nature and freshness.
+    - **Imperial Gold (#D4AF37):** Chinese luxury and prestige.
+- **Typography:**
+    - Chinese: **PingFang SC / Noto Sans SC** (Modern, clean, professional).
+    - English: **SF Pro Display** (Apple native, high-end).

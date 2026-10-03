@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// Note: SQLite doesn't natively support enums or arrays.
+// Prisma emulates them (enums as strings, arrays as JSON).
+// This schema is for LOCAL DEVELOPMENT only.
+// Production uses PostgreSQL (see schema.prisma).
+
+model User {
+  id                String          @id @default(uuid())
+  wechatId          String?         @unique
+  email             String?         @unique
+  phone             String?
+  fullName          String?
+  avatar            String?
+  membershipLevel   String          @default("GUEST")
+  preferredLanguage String          @default("CN")
+  trustScore        Float           @default(0.0)
+  travelStyle       String?
+  role              String          @default("USER")
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  bookings          Booking[]
+  reviews           Review[]
+  posts             SocialPost[]
+  interactions      UserInteraction[]
+  merchant          Merchant?
+}
+
+model Merchant {
+  id              String           @id @default(uuid())
+  userId          String?          @unique
+  user            User?            @relation(fields: [userId], references: [id])
+  businessName    String
+  category        String
+  location        String
+  latitude        Float?
+  longitude       Float?
+  description     String?
+  images          String
+  rating          Float            @default(0.0)
+  reviewCount     Int              @default(0)
+  isVerified      Boolean          @default(false)
+  isActive        Boolean          @default(true)
+  commissionRate  Float            @default(0.1)
+  contactInfo     String
+  operatingHours  String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  experiences     Experience[]
+  slots           Slot[]
+}
+
+model Experience {
+  id          String    @id @default(uuid())
+  merchantId  String
+  merchant    Merchant  @relation(fields: [merchantId], references: [id])
+  title       String
+  titleCn     String?
+  titleTr     String?
+  description String
+  descriptionCn String?
+  descriptionTr String?
+  priceCny    Float
+  priceUsd    Float?
+  duration    String
+  capacity    Int       @default(1)
+  images      String
+  tags        String
+  rating      Float     @default(0.0)
+  reviewCount Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  bookings    Booking[]
+  slots       Slot[]
+  reviews     Review[]
+}
+
+model Slot {
+  id           String     @id @default(uuid())
+  experienceId String
+  experience   Experience @relation(fields: [experienceId], references: [id])
+  merchantId   String
+  merchant     Merchant   @relation(fields: [merchantId], references: [id])
+  startTime    DateTime
+  endTime      DateTime
+  status       String     @default("AVAILABLE")
+  capacity     Int        @default(1)
+  bookedCount  Int        @default(0)
+  priceCny     Float
+  holdId       String?
+  holdExpiresAt DateTime?
+  createdAt    DateTime   @default(now())
+  bookings     Booking[]
+}
+
+model Booking {
+  id            String        @id @default(uuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  experienceId  String
+  experience    Experience    @relation(fields: [experienceId], references: [id])
+  slotId        String?
+  slot          Slot?         @relation(fields: [slotId], references: [id])
+  bookingDate   DateTime      @default(now())
+  slotTime      DateTime
+  guestCount    Int           @default(1)
+  status        String        @default("PENDING")
+  totalAmount   Float
+  currency      String        @default("CNY")
+  paymentRef    String?
+  qrCode        String?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  payment       Payment?
+  review        Review?
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  bookingId       String        @unique
+  booking         Booking       @relation(fields: [bookingId], references: [id])
+  method          String
+  amount          Float
+  currency        String        @default("CNY")
+  status          String        @default("INITIATED")
+  transactionId   String?
+  paymentUrl      String?
+  idempotencyKey  String        @unique
+  webhookReceived Boolean       @default(false)
+  failureReason   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Review {
+  id          String  @id @default(uuid())
+  bookingId   String  @unique
+  booking     Booking @relation(fields: [bookingId], references: [id])
+  userId      String
+  user        User    @relation(fields: [userId], references: [id])
+  experienceId String
+  experience  Experience @relation(fields: [experienceId], references: [id])
+  rating      Int
+  comment     String
+  mediaUrls   String
+  isVerified  Boolean @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model SocialPost {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  experienceId String?
+  title       String
+  content     String
+  mediaUrls   String
+  likes       Int      @default(0)
+  shares      Int      @default(0)
+  tags        String
+  createdAt   DateTime @default(now())
+}
+
+model UserInteraction {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  type        String
+  targetId    String?
+  metadata    String?
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String
+  title       String
+  body        String
+  data        String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model AdminLog {
+  id          String   @id @default(uuid())
+  adminId     String
+  action      String
+  targetId    String?
+  metadata    String?
+  createdAt   DateTime @default(now())
+}

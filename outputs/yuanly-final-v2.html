@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yuanly AI — Final Design v2</title>
+<style>
+:root{--p:#40E0D0;--p2:#2BAFB0;--g:#D4AF37;--a:#C41E3A;--bg:#FAFBFC;--s:#F0F2F5;--t:#1A1A2E;--t2:#6B7280;--w:#FFF;--r:24px;--rb:28px;--rp:16px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,'SF Pro Display','Segoe UI',Roboto,sans-serif;background:linear-gradient(180deg,#0d0d1a,#1a1a2e 40%,#0f1629);min-height:100vh;color:var(--t);padding:20px;overflow-x:hidden}
+
+/* Hero */
+.hero{text-align:center;padding:30px 20px 20px}
+.hero-logo{width:80px;height:80px;border-radius:24px;background:linear-gradient(135deg,var(--p),var(--p2));margin:0 auto 16px;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 40px rgba(64,224,208,0.4);position:relative}
+.hero-logo span{font-size:42px;font-weight:900;color:#fff;font-family:'Songti SC',serif}
+.hero-logo::after{content:'';position:absolute;top:8px;right:8px;width:12px;height:12px;border-radius:6px;background:var(--g);box-shadow:0 0 8px var(--g)}
+.hero h1{font-size:36px;font-weight:900;background:linear-gradient(135deg,var(--p),var(--g));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+.hero p{color:rgba(255,255,255,0.5);font-size:15px}
+.hero-tags{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.hero-tag{padding:4px 14px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(64,224,208,0.1);border:1px solid rgba(64,224,208,0.3);color:var(--p)}
+
+/* Section */
+.st{color:rgba(255,255,255,0.95);font-size:22px;font-weight:800;text-align:center;margin:50px 0 8px;letter-spacing:0.5px}
+.ss{color:rgba(255,255,255,0.4);font-size:13px;text-align:center;margin-bottom:24px}
+
+/* Phone grid */
+.phones{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;max-width:1700px;margin:0 auto}
+.pw{display:flex;flex-direction:column;align-items:center;gap:8px}
+.pl{font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:2px}
+.phone{width:290px;height:600px;background:#000;border-radius:40px;padding:6px;box-shadow:0 16px 50px rgba(0,0,0,0.4),0 0 0 2px #1a1a2e;position:relative}
+.phone::before{content:'';position:absolute;top:12px;left:50%;transform:translateX(-50%);width:84px;height:24px;background:#000;border-radius:12px;z-index:100}
+.screen{width:100%;height:100%;background:var(--bg);border-radius:34px;overflow:hidden;display:flex;flex-direction:column}
+.sb{height:36px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 20px 3px;font-size:11px;font-weight:600;flex-shrink:0}
+.sc{flex:1;overflow-y:auto;overflow-x:hidden}.sc::-webkit-scrollbar{display:none}
+.bat{width:18px;height:9px;border:1px solid var(--t);border-radius:2px;position:relative}.bat::before{content:'';position:absolute;left:1px;top:1px;width:12px;height:5px;background:var(--t);border-radius:1px}
+
+/* Tab bar */
+.tb{display:flex;justify-content:space-around;padding:6px 0 18px;border-top:1px solid #EAEAEA}
+.ti{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ti-i{font-size:18px}.ti-l{font-size:8px;font-weight:600;color:var(--t2)}
+.ti.a .ti-i,.ti.a .ti-l{color:var(--p)}
+
+/* Brand header */
+.brand-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 18px}
+.brand-logo{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--p),var(--p2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:900;font-family:'Songti SC',serif;position:relative}
+.brand-logo::after{content:'';position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:3px;background:var(--g)}
+.brand-name{font-size:15px;font-weight:800;color:var(--t)}
+.brand-loc{font-size:11px;color:var(--t2)}
+
+/* Explore */
+.ex-h{padding:8px 18px 8px}
+.ex-t{font-size:24px;font-weight:900;color:var(--t);margin-bottom:2px}
+.ex-s{font-size:12px;color:var(--t2)}
+.ex-search{background:var(--s);border-radius:14px;padding:8px 14px;font-size:13px;color:var(--t2);margin:10px 0;border:1px solid #E5E7EB}
+.cats{display:flex;gap:5px;padding:0 18px 10px;overflow-x:auto}.cats::-webkit-scrollbar{display:none}
+.cat{padding:5px 12px;border-radius:14px;font-size:11px;font-weight:600;background:var(--s);color:var(--t2);white-space:nowrap;border:1px solid #E5E7EB}
+.cat.a{background:var(--p);color:#fff;border-color:var(--p)}
+.feed{padding:0 18px 60px;display:flex;flex-direction:column;gap:12px}
+.card{border-radius:22px;overflow:hidden;position:relative;height:300px;box-shadow:0 4px 12px rgba(0,0,0,0.08)}
+.card img{width:100%;height:100%;object-fit:cover}
+.card-ov{position:absolute;bottom:0;left:0;right:0;padding:14px;background:linear-gradient(transparent,rgba(0,0,0,0.75));display:flex;justify-content:space-between;align-items:flex-end}
+.card-badge{position:absolute;top:12px;left:12px;background:rgba(64,224,208,0.9);padding:3px 10px;border-radius:14px;font-size:10px;font-weight:600;color:#fff;backdrop-filter:blur(8px)}
+.card-t{color:#fff;font-size:15px;font-weight:700;text-shadow:0 2px 6px rgba(0,0,0,0.5);margin-bottom:2px}
+.card-r{color:var(--g);font-size:11px;font-weight:600}
+.card-p{background:var(--a);padding:3px 10px;border-radius:14px;color:#fff;font-size:12px;font-weight:700}
+
+/* Detail */
+.det-img{width:100%;height:220px;object-fit:cover}
+.det-c{padding:14px;margin-top:-18px;background:var(--bg);border-radius:26px 26px 0 0;position:relative}
+.det-t{font-size:18px;font-weight:800;margin-bottom:2px}.det-p{font-size:18px;font-weight:700;color:var(--p);margin-bottom:12px}
+.det-ir{display:flex;justify-content:space-between;margin-bottom:10px}
+.det-ii{flex:1}.det-il{font-size:10px;color:var(--t2);margin-bottom:1px}.det-iv{font-size:11px;font-weight:600}
+.det-d{height:1px;background:var(--s);margin:10px 0}.det-st{font-size:14px;font-weight:700;margin-bottom:6px}
+.det-desc{font-size:12px;color:var(--t2);line-height:18px;margin-bottom:10px}
+.slots{display:flex;gap:5px;overflow-x:auto;padding-bottom:4px}.slots::-webkit-scrollbar{display:none}
+.slot{padding:7px 12px;border-radius:10px;background:var(--s);border:2px solid transparent;white-space:nowrap}
+.slot.sel{border-color:var(--p);background:rgba(64,224,208,0.06)}
+.slot-d{font-size:10px;font-weight:600;margin-bottom:1px}.slot-p{font-size:12px;font-weight:700;color:var(--p)}
+.gr{display:flex;justify-content:space-between;align-items:center;margin:10px 0}
+.gr-l{font-size:13px;font-weight:600}.gr-c{display:flex;align-items:center;gap:10px}
+.gr-b{width:28px;height:28px;border-radius:14px;background:var(--s);display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--p);font-weight:700}
+.gr-n{font-size:15px;font-weight:700}
+.tr{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--s)}
+.tr-l{font-size:13px;color:var(--t2)}.tr-a{font-size:18px;font-weight:800;color:var(--p)}
+.book-btn{background:linear-gradient(135deg,var(--p),var(--p2));padding:13px;border-radius:22px;text-align:center;color:#fff;font-size:15px;font-weight:700;margin:10px 0;box-shadow:0 4px 12px rgba(64,224,208,0.35)}
+
+/* AI Concierge */
+.ai-c{flex:1;display:flex;flex-direction:column}
+.ai-h{text-align:center;padding:12px 16px 4px}
+.ai-t{font-size:20px;font-weight:800}.ai-s{font-size:12px;color:var(--t2)}
+.ai-toggle{margin:6px auto;padding:3px 10px;background:var(--s);border-radius:12px;border:1px solid var(--p);font-size:10px;color:var(--p);font-weight:600;display:inline-block}
+.orb-w{display:flex;justify-content:center;padding:8px 0}
+.orb{width:70px;height:70px;border-radius:35px;background:radial-gradient(circle at 35% 35%,#5ff5e5,var(--p));box-shadow:0 0 25px rgba(64,224,208,0.5);display:flex;align-items:center;justify-content:center;animation:p 2s ease-in-out infinite}
+.orb-i{width:48px;height:48px;border-radius:24px;background:rgba(255,255,255,0.3)}
+@keyframes p{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+.chat{flex:1;padding:4px 12px;overflow-y:auto;display:flex;flex-direction:column;gap:7px}.chat::-webkit-scrollbar{display:none}
+.msg-r{display:flex;gap:5px;align-items:flex-end}.msg-r.u{justify-content:flex-end}
+.msg-a{width:24px;height:24px;border-radius:12px;background:linear-gradient(135deg,var(--p),var(--p2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;flex-shrink:0}
+.msg-b{max-width:78%;padding:8px 11px;border-radius:15px;font-size:12px;line-height:17px}
+.msg-b.ai{background:var(--s);color:var(--t);border-bottom-left-radius:3}
+.msg-b.u{background:var(--p);color:#fff;border-bottom-right-radius:3}
+.msg-orig{margin-top:5px;padding-top:5px;border-top:1px solid #E0E0E0}
+.msg-orig-l{font-size:8px;color:var(--t2);font-weight:600;margin-bottom:2px}
+.msg-orig-t{font-size:11px;color:var(--t2);font-style:italic;line-height:15px}
+.msg-lang{font-size:8px;color:var(--t2);margin-top:3px}
+.ai-in{display:flex;align-items:center;gap:5px;padding:7px 10px;background:#fff;border-top:1px solid #EEE}
+.ai-m{width:32px;height:32px;border-radius:16px;background:var(--s);display:flex;align-items:center;justify-content:center;font-size:14px}
+.ai-ti{flex:1;background:var(--s);border-radius:14px;padding:7px 11px;font-size:12px;color:var(--t2)}
+.ai-sd{width:32px;height:32px;border-radius:16px;background:var(--p);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
+
+/* Calendar */
+.cal-h{padding:12px 18px 6px}.cal-t{font-size:22px;font-weight:900;margin-bottom:2px}
+.cal-nav{display:flex;justify-content:space-between;align-items:center;margin:8px 0}
+.cal-month{font-size:15px;font-weight:700}.cal-arw{color:var(--p);font-size:18px;cursor:pointer}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:0 12px}
+.cal-dh{text-align:center;font-size:10px;color:var(--t2);padding:6px 0;font-weight:600}
+.cal-d{text-align:center;padding:8px 0;font-size:12px;border-radius:8px;position:relative}
+.cal-d.oth{color:#CCC}.cal-d.today{font-weight:800;color:var(--p)}
+.cal-d.has{background:rgba(64,224,208,0.1);color:var(--p);font-weight:600}
+.cal-d.has::after{content:'';position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:3px;background:var(--p)}
+.cal-d.has.g::after{background:var(--g)}
+.cal-events{padding:12px 18px}
+.cal-ev{background:#fff;border-radius:14px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;border:1px solid #EEE}
+.cal-ev-dot{width:10px;height:10px;border-radius:5px;flex-shrink:0}
+.cal-ev-dot.p{background:var(--p)}.cal-ev-dot.g{background:var(--g)}.cal-ev-dot.a{background:var(--a)}
+.cal-ev-c{flex:1}.cal-ev-t{font-size:13px;font-weight:700}.cal-ev-d{font-size:11px;color:var(--t2)}
+.cal-ev-share{display:flex;gap:4px}
+.cal-share-btn{width:28px;height:28px;border-radius:14px;background:var(--s);display:flex;align-items:center;justify-content:center;font-size:12px}
+
+/* Login */
+.lo-c{flex:1;display:flex;flex-direction:column;justify-content:center;padding:24px 20px}
+.lo-l{text-align:center;margin-bottom:24px}
+.lo-lc{width:60px;height:60px;border-radius:20px;background:linear-gradient(135deg,var(--p),var(--p2));margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;font-weight:900;font-family:'Songti SC',serif;box-shadow:0 8px 24px rgba(64,224,208,0.4);position:relative}
+.lo-lc::after{content:'';position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:4px;background:var(--g)}
+.lo-t{font-size:20px;font-weight:800;text-align:center;margin-bottom:2px}.lo-s{font-size:12px;color:var(--t2);text-align:center}
+.lo-i{background:#fff;border:1px solid #E5E7EB;border-radius:20px;padding:11px 14px;font-size:13px;color:var(--t2);margin-bottom:7px}
+.lo-b{background:linear-gradient(135deg,var(--p),var(--p2));padding:13px;border-radius:20px;text-align:center;color:#fff;font-size:15px;font-weight:700;margin-top:4px;box-shadow:0 4px 12px rgba(64,224,208,0.3)}
+.lo-d{display:flex;align-items:center;margin:16px 0}.lo-dl{flex:1;height:1px;background:#E5E7EB}.lo-dt{margin:0 8px;color:var(--t2);font-size:11px}
+.lo-bw{background:#07C160;padding:13px;border-radius:20px;text-align:center;color:#fff;font-size:15px;font-weight:700}
+.lo-bg{text-align:center;padding:12px;color:var(--t2);font-size:13px}
+
+/* MyTrips */
+.tr-h{padding:12px 18px 8px}.tr-t{font-size:22px;font-weight:900;margin-bottom:8px}
+.tr-tabs{display:flex;background:var(--s);border-radius:10px;padding:3px}
+.tr-tab{flex:1;padding:7px;border-radius:8px;text-align:center;font-size:12px;font-weight:600;color:var(--t2)}
+.tr-tab.a{background:var(--p);color:#fff}
+.tr-list{padding:8px 18px 60px;display:flex;flex-direction:column;gap:10px}
+.tr-card{background:#fff;border-radius:14px;padding:12px;box-shadow:0 2px 6px rgba(0,0,0,0.05);border:1px solid #F0F0F0}
+.tr-ch{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px}
+.tr-ct{font-size:14px;font-weight:700;flex:1;margin-right:5px}
+.tr-st{padding:2px 7px;border-radius:7px;font-size:9px;font-weight:700;color:#fff}
+.tr-st.c{background:#4CAF50}.tr-st.p{background:#FF9800}
+.tr-m{font-size:11px;color:var(--t2);margin-bottom:2px}.tr-d{font-size:11px;color:var(--t2);margin-bottom:6px}
+.tr-ff{display:flex;justify-content:space-between;align-items:center}
+.tr-pr{font-size:15px;font-weight:800;color:var(--p)}.tr-g{font-size:11px;color:var(--t2)}
+.tr-act{display:flex;gap:5px;margin-top:8px}
+.tr-bq{flex:1;background:var(--p);padding:7px;border-radius:8px;text-align:center;color:#fff;font-size:11px;font-weight:600}
+.tr-bc{padding:7px 10px;border-radius:8px;border:1px solid #F44336;color:#F44336;font-size:11px;font-weight:600}
+
+/* QR */
+.qr-c{padding:14px;flex:1}.qr-card{background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.1)}
+.qr-h{background:linear-gradient(135deg,var(--p),var(--p2));padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+.qr-br{font-size:18px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px}
+.qr-br-logo{width:24px;height:24px;border-radius:7px;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:14px;font-family:'Songti SC',serif}
+.qr-bs{font-size:20px;color:rgba(255,255,255,0.5)}
+.qr-ba{padding:20px;display:flex;justify-content:center}
+.qr-b{width:140px;height:140px;padding:8px;border:2px solid var(--s);border-radius:8px}
+.qr-g{width:100%;height:100%;display:grid;grid-template-columns:repeat(8,1fr);gap:1px}
+.qr-px{border-radius:1px}
+.qr-i{padding:12px 16px;border-top:1px solid var(--s)}
+.qr-it{font-size:14px;font-weight:800;margin-bottom:2px}.qr-im{font-size:12px;color:var(--t2);margin-bottom:8px}
+.qr-r{display:flex;justify-content:space-between;padding:3px 0}.qr-rl{font-size:11px;color:var(--t2)}.qr-rv{font-size:11px;font-weight:600}
+.qr-f{padding:10px 16px;background:var(--s);text-align:center}.qr-ft{font-size:11px;font-weight:600;margin-bottom:1px}.qr-fs{font-size:9px;color:var(--t2)}
+.qr-share{display:flex;gap:6px;justify-content:center;padding:12px}
+.qr-share-btn{padding:8px 14px;border-radius:12px;font-size:11px;font-weight:600;border:1px solid #E5E7EB;background:#fff;color:var(--t2)}
+
+/* Payment */
+.pa-h{padding:12px 18px 4px}.pa-t{font-size:22px;font-weight:800}.pa-en{font-size:12px;color:var(--t2);margin-top:1px}
+.pa-ac{margin:10px;padding:16px;background:var(--s);border-radius:16px;text-align:center}
+.pa-al{font-size:12px;color:var(--t2);margin-bottom:3px}.pa-a{font-size:28px;font-weight:800;color:var(--p)}
+.pa-m{padding:0 18px}.pa-mt{font-size:14px;font-weight:700;margin-bottom:6px}
+.pa-method{display:flex;align-items:center;padding:12px;background:#fff;border-radius:10px;margin-bottom:6px;border:2px solid transparent}
+.pa-method.sel{border-color:var(--p);background:rgba(64,224,208,0.03)}
+.pa-mi{font-size:18px;margin-right:10px}.pa-ml{flex:1;font-size:14px;font-weight:600}
+.pa-radio{width:18px;height:18px;border-radius:9px;border:2px solid #CCC;display:flex;align-items:center;justify-content:center}
+.pa-radio.sel{border-color:var(--p)}.pa-rd{width:8px;height:8px;border-radius:4px;background:var(--p)}
+.pa-b{margin:12px;background:linear-gradient(135deg,var(--p),var(--p2));padding:13px;border-radius:20px;text-align:center;color:#fff;font-size:16px;font-weight:700;box-shadow:0 4px 12px rgba(64,224,208,0.3)}
+
+/* Profile */
+.pr-h{display:flex;flex-direction:column;align-items:center;padding:14px}
+.pr-av{width:64px;height:64px;border-radius:32px;background:linear-gradient(135deg,var(--p),var(--p2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px;font-weight:800;margin-bottom:8px;position:relative}
+.pr-lv{position:absolute;bottom:-2px;right:-2px;background:var(--g);padding:2px 6px;border-radius:8px;font-size:7px;font-weight:700;color:#fff}
+.pr-n{font-size:18px;font-weight:800}.pr-ts{font-size:11px;color:var(--g);margin-top:1px}
+.pr-sr{display:flex;gap:5px;padding:0 14px 10px}.pr-s{flex:1;background:#fff;padding:10px;border-radius:10px;text-align:center;border:1px solid #F0F0F0}
+.pr-sn{font-size:18px;font-weight:800;color:var(--p)}.pr-sl{font-size:9px;color:var(--t2);margin-top:1px}
+.pr-sec{padding:0 14px 6px}.pr-st{font-size:12px;font-weight:700;margin-bottom:6px}
+.pr-lr{display:flex;gap:5px}.pr-lb{flex:1;padding:8px;border-radius:8px;background:var(--s);text-align:center;font-size:11px;font-weight:600;color:var(--t2);border:1px solid transparent}
+.pr-lb.a{border-color:var(--p);color:var(--p)}
+.pr-m{padding:0 14px}.pr-mi{display:flex;align-items:center;padding:10px 12px;background:#fff;border-radius:10px;margin-bottom:5px;justify-content:space-between;border:1px solid #F0F0F0}
+.pr-ml{display:flex;align-items:center;gap:8px}.pr-mi2{font-size:16px}.pr-mlb{font-size:13px;font-weight:500}
+.pr-ma{color:var(--t2);font-size:14px}
+
+/* Web */
+.web-mock{width:100%;max-width:880px;margin:0 auto;background:var(--bg);border-radius:14px;overflow:hidden;box-shadow:0 16px 50px rgba(0,0,0,0.3);margin-bottom:20px}
+.web-bar{height:36px;background:#1e1e2e;display:flex;align-items:center;gap:6px;padding:0 14px}
+.web-dot{width:9px;height:9px;border-radius:5px}.web-dot.r{background:#ff5f56}.web-dot.y{background:#ffbd2e}.web-dot.g{background:#27c93f}
+.web-url{flex:1;height:20px;background:rgba(255,255,255,0.1);border-radius:10px;margin-left:8px;display:flex;align-items:center;padding:0 10px;font-size:10px;color:rgba(255,255,255,0.5)}
+.web-body{display:flex;height:380px}
+.web-side{width:180px;background:#1a1a2e;padding:14px 10px;flex-shrink:0}
+.web-side-logo{display:flex;align-items:center;gap:8px;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.1)}
+.web-side-logo-icon{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--p),var(--p2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:900;font-family:'Songti SC',serif;position:relative}
+.web-side-logo-icon::after{content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:3px;background:var(--g)}
+.web-side-logo-t{font-size:14px;font-weight:800;color:var(--p)}
+.web-side-i{padding:9px 10px;border-radius:7px;font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:3px;display:flex;align-items:center;gap:7px}
+.web-side-i.a{background:rgba(64,224,208,0.12);color:var(--p)}
+.web-main{flex:1;padding:20px;overflow-y:auto}.web-main::-webkit-scrollbar{display:none}
+.web-mh{font-size:18px;font-weight:800;margin-bottom:16px}
+.web-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.web-stat{background:var(--s);padding:14px;border-radius:10px}
+.web-stat-v{font-size:22px;font-weight:800;color:var(--p)}
+.web-stat-l{font-size:11px;color:var(--t2);margin-top:2px}
+.web-chart{background:#fff;border-radius:10px;padding:14px;height:100px;display:flex;align-items:flex-end;gap:6px;border:1px solid #F0F0F0}
+.web-bar-c{flex:1;background:linear-gradient(180deg,var(--p),rgba(64,224,208,0.2));border-radius:5px 5px 0 0;position:relative}
+.web-bar-c span{position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--t2)}
+</style>
+</head>
+<body>
+
+<div class="hero">
+<div class="hero-logo"><span>缘</span></div>
+<h1>Yuanly AI</h1>
+<p>缘ly — The fateful connection between traveler and destination</p>
+<div class="hero-tags">
+<div class="hero-tag">✓ Backend Live</div>
+<div class="hero-tag">✓ DB Seeded</div>
+<div class="hero-tag">✓ AI Translation</div>
+<div class="hero-tag">✓ WeChat Pay</div>
+<div class="hero-tag">✓ QR Tickets</div>
+<div class="hero-tag">✓ Calendar + Share</div>
+</div>
+</div>
+
+<div class="st">MOBILE APP — Final Design</div>
+<div class="ss">10 screens · Logo · Calendar · Sharing · Dual-language AI · Role-based access</div>
+
+<div class="phones">
+
+<!-- LOGIN -->
+<div class="pw"><div class="pl">Login</div><div class="phone"><div class="screen">
+<div class="sb"><span>9:41</span><span>📶 🌐<div class="bat"></div></span></div>
+<div class="lo-c">
+<div class="lo-l"><div class="lo-lc">缘</div><div class="lo-t">Welcome to Yuanly</div><div class="lo-s">Begin your Turkish adventure</div></div>
+<div class="lo-i">📧 Email address</div><div class="lo-i">👤 Full name</div>
+<div class="lo-b">Register with Email</div>
+<div class="lo-d"><div class="lo-dl"></div><div class="lo-dt">OR</div><div class="lo-dl"></div></div>
+<div class="lo-bw">💚 WeChat Login</div>
+<div class="lo-bg">Continue as Guest →</div>
+</div>
+</div></div></div>
+
+<!-- EXPLORE -->
+<div class="pw"><div class="pl">Explore</div><div class="phone"><div class="screen">
+<div class="sb"><span>9:41</span><span>📶 🌐<div class="bat"></div></span></div>
+<div class="sc">
+<div class="brand-bar"><div style="display:flex;align-items:center;gap:8px"><div class="brand-logo">缘</div><div><div class="brand-name">Yuanly</div><div class="brand-loc">Turkey</div></div></div><div style="font-size:18px">🔔</div></div>
+<div class="ex-h"><div class="ex-t">探索土耳其</div><div class="ex-s">Discover your fateful connection 🇹🇷</div></div>
+<div class="ex-search">🔍 搜索体验...</div>
+<div class="cats"><div class="cat a">全部</div><div class="cat">冒险</div><div class="cat">浪漫</div><div class="cat">文化</div><div class="cat">热气球</div></div>
+<div class="feed">
+<div class="card"><img src="https://images.unsplash.com/photo-1533900298318-6b8da0857577?w=400">
+<div class="card-badge">🌍 Global Favorite</div>
+<div class="card-ov"><div><div class="card-t">蓝天滑翔伞 - 尊享飞行</div><div class="card-r">⭐ 4.9 · 120 reviews · Fethiye</div></div><div class="card-p">¥800</div></div></div>
+<div class="card"><img src="https://images.unsplash.com/photo-1520440229748-677be5f3bd57?w=400">
+<div class="card-badge">💕 Most Romantic</div>
+<div class="card-ov"><div><div class="card-t">卡帕多奇亚热气球之旅</div><div class="card-r">⭐ 5.0 · 350 reviews · Cappadocia</div></div><div class="card-p">¥2500</div></div></div>
+</div></div>
+<div class="tb"><div class="ti a"><div class="ti-i">🔍</div><div class="ti-l">探索</div></div><div class="ti"><div class="ti-i">📅</div><div class="ti-l">行程</div></div><div class="ti"><div class="ti-i">💬</div><div class="ti-l">AI</div></div><div class="ti"><div class="ti-i">👤</div><div class="ti-l">我的</div></div></div>
+</div></div></div>
+
+<!-- DETAIL -->
+<div class="pw"><div class="pl">Detail + Booking</div><div class="phone"><div class="screen">
+<div class="sb"><span>9:41</span><span>📶 🌐<div class="bat"></div></span></div>
+<div class="sc">
+<img src="https://images.unsplash.com/photo-1533900298318-6b8da0857577?w=400" class="det-img">
+<div class="det-c">
+<div class="det-t">蓝天滑翔伞 - 尊享飞行</div>
+<div class="det-p">¥800 CNY</div>
+<div class="det-ir"><div class="det-ii"><div class="det-il">📍 地点</div><div class="det-iv">Fethiye</div></div><div class="det-ii"><div class="det-il">⏱️ 时长</div><div class="det-iv">45 mins</div></div><div class="det-ii"><div class="det-il">⭐ 评分</div><div class="det-iv">4.9</div></div></div>
+<div class="det-d"></div><div class="det-st">体验详情</div>
+<div class="det-desc">体验在厄吕代尼兹蓝色礁湖上空飞行的极致刺激。专业飞行员，安全设备，可选4K无人机视频。</div>
+<div class="det-d"></div><div class="det-st">可用时段</div>
+<div class="slots"><div class="slot sel"><div class="slot-d">10月4日 08:00</div><div class="slot-p">¥800</div></div><div class="slot"><div class="slot-d">10月4日 11:00</div><div class="slot-p">¥800</div></div><div class="slot"><div class="slot-d">10月4日 14:00</div><div class="slot-p">¥800</div></div></div>
+<div class="gr"><div class="gr-l">人数</div><div class="gr-c"><div class="gr-b">−</div><div class="gr-n">1</div><div class="gr-b">+</div></div></div>
+<div class="tr"><div class="tr-l">总计</div><div class="tr-a">¥800 CNY</div></div>
+<div class="book-btn">🤖 AI一键预订 →</div>
+</div></div>
+</div></div></div>
+
+<!-- AI CONCIERGE — DUAL LANGUAGE -->
+<div class="pw"><div class="pl">AI Concierge — Dual Language</div><div class="phone"><div class="screen">
+<div class="sb"><span>9:41</span><span>📶 🌐<div class="bat"></div></span></div>
+<div class="ai-c">
+<div class="ai-h"><div class="ai-t">Yuanly AI</div><div class="ai-s">你的私人土耳其导游 🇹🇷</div><div class="ai-toggle">✓ Show Original + Translation</div></div>
+<div class="orb-w"><div class="orb"><div class="orb-i"></div></div></div>
+<div class="chat">
+<div class="msg-r"><div class="msg-a">缘</div><div class="msg-b ai">欢迎来到土耳其的奇妙世界。我是Yuanly，您的私人导游。您想探索什么？<div class="msg-lang">🇨🇳 中文</div></div></div>
+<div class="msg-r u"><div class="msg-b u">我想在费特希耶玩滑翔伞</div></div>
+<div class="msg-r"><div class="msg-a">缘</div><div class="msg-b ai">好的！我找到了"蓝天滑翔伞"。价格：¥800。可用时间：10月4日 08:00, 11:00, 14:00<div class="msg-orig"><div class="msg-orig-l">🇨🇳 中文 → 🇬🇧 English (auto-translated)</div><div class="msg-orig-t">Great! I found "Azure Sky Paragliding". Price: ¥800. Available: Oct 4 at 08:00, 11:00, 14:00</div></div><div class="msg-lang">🇨🇳 → 🇬🇧</div></div></div>
+<div class="msg-r u"><div class="msg-b u">🎤 [Voice] 预订明天8点的</div></div>
+<div class="msg-r"><div class="msg-a">缘</div><div class="msg-b ai">预订已确认！二维码门票已就绪。支付请求已发送。<div class="msg-orig"><div class="msg-orig-l">🇨🇳 → 🇬🇧 (voice → text → translated)</div><div class="msg-orig-t">Booking confirmed! QR ticket ready. Payment request sent.</div></div><div class="msg-lang">🎤 Voice → 🇨🇳 → 🇬🇧</div></div></div>
+</div>
+<div class="ai-in"><div class="ai-m">🎤</div><div class="ai-ti">输入消息...</div><div class="ai-sd">➤</div></div>
+</div></div></div></div>
+
+<!-- CALENDAR -->
+<div class="pw"><div class="pl">Calendar + Share</div><div class="phone"><div class="screen">
+<div class="sb"><span>9:41</span><span>📶 🌐<div class="bat"></div></span></div>
+<div class="sc">
+<div class="cal-h"><div class="cal-t">我的行程日历</div><div style="font-size:12px;color:var(--t2)">📅 Booking Calendar + Share</div></div>
+<div class="cal-nav"><div class="cal-arw">‹</div><div class="cal-month">2026年10月</div><div class="cal-arw">›</div></div>
+<div class="cal-grid">
+<div class="cal-dh">日</div><div class="cal-dh">一</div><div class="cal-dh">二</div><div class="cal-dh">三</div><div class="cal-dh">四</div><div class="cal-dh">五</div><div class="cal-dh">六</div>
+<div class="cal-d oth">28</div><div class="cal-d oth">29</div><div class="cal-d oth">30</div><div class="cal-d">1</div><div class="cal-d">2</div><div class="cal-d">3</div><div class="cal-d">4</div>
+<div class="cal-d has">5</div><div class="cal-d">6</div><div class="cal-d has g">7</div><div class="cal-d">8</div><div class="cal-d">9</div><div class="cal-d">10</div><div class="cal-d">11</div>
+<div class="cal-d">12</div><div class="cal-d">13</div><div class="cal-d">14</div><div class="cal-d">15</div><div class="cal-d has">16</div><div class="cal-d">17</div><div class="cal-d">18</div>
+<div class="cal-d">19</div><div class="cal-d">20</div><div class="cal-d">21</div><div class="cal-d">22</div><div class="cal-d">23</div><div class="cal-d">24</div><div class="cal-d">25</div>
+<div class="cal-d">26</div><div class="cal-d">27</div><div class="cal-d">28</div><div class="cal-d">29</div><div class="cal-d">30</div><div class="cal-d">31</div><div class="cal-d oth">1</div>
+</div>
+<div class="cal-events">
+<div class="cal-ev"><div class="cal-ev-dot p"></div><div class="cal-ev-c"><div class="cal-ev-t">蓝天滑翔伞 - 尊享飞行</div><div class="cal-ev-d">📅 Oct 5, 08:00 · Fethiye · ¥800</div></div><div class="cal-ev-share"><div class="cal-share-btn">📧</div><div class="cal-share-btn">💬</div><div class="cal-share-btn">💚</div></div></div>
+<div class="cal-ev"><div class="cal-ev-dot g"></div><div class="cal-ev-c"><div class="cal-ev-t">卡帕多奇亚热气球</div><div class="cal-ev-d">📅 Oct 7, 05:30 · Cappadocia · ¥2500</div></div><div class="cal-ev-share"><div class="cal-share-btn">📧</div><div class="cal-share-btn">💬</div><div class="cal-share-btn">💚</div></div></div>
+<div style="font-size:10px;color:var(--t2);text-align:center;margin-top:8px">📧 Email · 💬 SMS · 💚 WeChat Share</div>
+</div>
+</div>
+<div class="tb"><div class="ti"><div class="ti-i">🔍</div><div class="ti-l">探索</div></div><div class="ti a"><div class="ti-i">📅</div><div class="ti-l">行程</div></div><div class="ti"><div class="ti-i">💬</div><div class="ti-l">AI</div></div><div class="ti"><div class="ti-i">👤</div><div class="ti-l">我的</div></div></div>
+</div></div></div>
+
+<!-- MY TRIPS -->
+<div class="pw"><div class="pl">My Trips</div><div class="phone"><div class="screen">
+<div class="sb"><span>9:41</span><span>📶 🌐<div class="bat"></div></span></div>
+<div class="sc">
+<div class="tr-h"><div class="tr-t">我的行程</div><div class="tr-tabs"><div class="tr-tab a">即将出发</div><div class="tr-tab">历史行程</div></div></div>
+<div class="tr-list">
+<div class="tr-card"><div class="tr-ch"><div class="tr-ct">蓝天滑翔伞 - 尊享飞行</div><div class="tr-st c">已确认</div></div><div class="tr-m">Azure Sky Paragliding · Fethiye</div><div class="tr-d">📅 2026年10月5日 08:00</div><div class="tr-ff"><div class="tr-pr">¥800</div><div class="tr-g">1 人</div></div><div class="tr-act"><div class="tr-bq">📱 QR Ticket</div><div class="tr-bc">取消</div></div></div>
+<div class="tr-card"><div class="tr-ch"><div class="tr-ct">卡帕多奇亚热气球</div><div class="tr-st p">待确认</div></div><div class="tr-m">Cappadocia Dreams Balloon</div><div class="tr-d">📅 2026年10月7日 05:30</div><div class="tr-ff"><div class="tr-pr">¥2500</div><div class="tr-g">2 人</div></div></div>
+</div></div>
+<div class="tb"><div class="ti"><div class="ti-i">🔍</div><div class="ti-l">探索</div></div><div class="ti a"><div class="ti-i">📅</div><div class="ti-l">行程</div></div><div class="ti"><div class="ti-i">💬</div><div class="ti-l">AI</div></div><div class="ti"><div class="ti-i">👤</div><div class="ti-l">我的</div></div></div>
+</div></div></div>
+
+<!-- QR TICKET -->
+<div class="pw"><div class="pl">QR Ticket</div><div class="phone"><div class="screen">
+<div class="sb"><span>9:41</span><span>📶 🌐<div class="bat"></div></span></div>
+<div class="qr-c"><div class="qr-card">
+<div class="qr-h"><div class="qr-br"><div class="qr-br-logo">缘</div>Yuanly</div><div class="qr-bs">缘</div></div>
+<div class="qr-ba"><div class="qr-b"><div class="qr-g" id="qr"></div></div></div>
+<div class="qr-i"><div class="qr-it">蓝天滑翔伞 - 尊享飞行</div><div class="qr-im">Azure Sky Paragliding · Fethiye</div>
+<div class="qr-r"><div class="qr-rl">📅 Date</div><div class="qr-rv">Oct 5, 2026 08:00</div></div>
+<div class="qr-r"><div class="qr-rl">👥 Guests</div><div class="qr-rv">1</div></div>
+<div class="qr-r"><div class="qr-rl">✅ Status</div><div class="qr-rv" style="color:#4CAF80;font-weight:700">CONFIRMED</div></div>
+<div class="qr-r"><div class="qr-rl">🎫 Booking</div><div class="qr-rv">booking-1</div></div>
+</div>
+<div class="qr-f"><div class="qr-ft">Show this QR code at the venue</div><div class="qr-fs">Powered by Yuanly AI 🤖</div></div>
+</div>
+<div class="qr-share">
+<div class="qr-share-btn">📧 Email</div><div class="qr-share-btn">💬 SMS</div><div class="qr-share-btn">💚 WeChat</div>
+</div></div>
+</div></div></div>
+
+<!-- PAYMENT -->
+<div class="pw"><div class="pl">Payment</div><div class="phone"><div class="screen">
+<div class="sb"><span>9:41</span><span>📶 🌐<div class="bat"></div></span></div>
+<div class="sc">
+<div class="pa-h"><div class="pa-t">支付</div><div class="pa-en">蓝天滑翔伞 - 尊享飞行</div></div>
+<div class="pa-ac"><div class="pa-al">总计</div><div class="pa-a">¥800 CNY</div></div>
+<div class="pa-m"><div class="pa-mt">选择支付方式</div>
+<div class="pa-method sel"><div class="pa-mi">💚</div><div class="pa-ml">微信支付 WeChat Pay</div><div class="pa-radio sel"><div class="pa-rd"></div></div></div>
+<div class="pa-method"><div class="pa-mi">💙</div><div class="pa-ml">支付宝 Alipay</div><div class="pa-radio"></div></div>
+</div>
+<div class="pa-b">¥800 安全支付 🔒</div>
+</div>
+</div></div></div>
+
+<!-- PROFILE -->
+<div class="pw"><div class="pl">Profile</div><div class="phone"><div class="screen">
+<div class="sb"><span>9:41</span><span>📶 🌐<div class="bat"></div></span></div>
+<div class="sc">
+<div class="pr-h"><div class="pr-av">Z<div class="pr-lv">SILVER</div></div><div class="pr-n">Zhang Wei</div><div class="pr-ts">★ Trust Score: 5.0</div></div>
+<div class="pr-sr"><div class="pr-s"><div class="pr-sn">3</div><div class="pr-sl">Bookings</div></div><div class="pr-s"><div class="pr-sn">2</div><div class="pr-sl">Reviews</div></div><div class="pr-s"><div class="pr-sn">5.0</div><div class="pr-sl">Trust</div></div></div>
+<div class="pr-sec"><div class="pr-st">语言 / Language</div><div class="pr-lr"><div class="pr-lb a">中文</div><div class="pr-lb">English</div><div class="pr-lb">Türkçe</div></div></div>
+<div class="pr-m">
+<div class="pr-mi"><div class="pr-ml"><span class="pr-mi2">📅</span> <span class="pr-mlb">My Bookings</span></div><div class="pr-ma">3 ›</div></div>
+<div class="pr-mi"><div class="pr-ml"><span class="pr-mi2">⭐</span> <span class="pr-mlb">My Reviews</span></div><div class="pr-ma">2 ›</div></div>
+<div class="pr-mi"><div class="pr-ml"><span class="pr-mi2">🔔</span> <span class="pr-mlb">Notifications</span></div><div class="pr-ma">›</div></div>
+<div class="pr-mi"><div class="pr-ml"><span class="pr-mi2">💳</span> <span class="pr-mlb">Payment Methods</span></div><div class="pr-ma">›</div></div>
+<div class="pr-mi"><div class="pr-ml"><span class="pr-mi2">⚙️</span> <span class="pr-mlb">Settings</span></div><div class="pr-ma">›</div></div>
+</div>
+</div>
+<div class="tb"><div class="ti"><div class="ti-i">🔍</div><div class="ti-l">探索</div></div><div class="ti"><div class="ti-i">📅</div><div class="ti-l">行程</div></div><div class="ti"><div class="ti-i">💬</div><div class="ti-l">AI</div></div><div class="ti a"><div class="ti-i">👤</div><div class="ti-l">我的</div></div></div>
+</div></div></div>
+
+</div>
+
+<!-- WEB -->
+<div class="st" style="margin-top:50px">WEB — Merchant Dashboard</div>
+<div class="ss">Role-based access · Admin (1 person) · Merchant (granted authority)</div>
+
+<div class="web-mock">
+<div class="web-bar"><div class="web-dot r"></div><div class="web-dot y"></div><div class="web-dot g"></div><div class="web-url">🔒 https://merchant.yuanly.ai/dashboard</div></div>
+<div class="web-body">
+<div class="web-side">
+<div class="web-side-logo"><div class="web-side-logo-icon">缘</div><div class="web-side-logo-t">Yuanly</div></div>
+<div class="web-side-i a">📊 Dashboard</div>
+<div class="web-side-i">🎯 Experiences</div>
+<div class="web-side-i">📅 Bookings</div>
+<div class="web-side-i">🗓️ Calendar</div>
+<div class="web-side-i">💰 Revenue</div>
+<div class="web-side-i">⭐ Reviews</div>
+<div class="web-side-i">⚙️ Settings</div>
+<div style="margin-top:20px;padding:10px;border-radius:8px;background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.3)">
+<div style="font-size:10px;color:var(--g);font-weight:600">MERCHANT ROLE</div>
+<div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:3px">Azure Sky Paragliding</div>
+</div>
+</div>
+<div class="web-main">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+<div class="web-mh" style="margin:0">Dashboard</div>
+<div style="font-size:11px;color:var(--t2)">👤 merchant@azuresky.com</div>
+</div>
+<div class="web-stats">
+<div class="web-stat"><div class="web-stat-v">1,284</div><div class="web-stat-l">Total Bookings</div></div>
+<div class="web-stat"><div class="web-stat-v" style="color:var(--p)">¥1,027,200</div><div class="web-stat-l">Total Revenue</div></div>
+<div class="web-stat"><div class="web-stat-v" style="color:var(--g)">4.9 ★</div><div class="web-stat-l">Avg Rating</div></div>
+</div>
+<div style="font-size:13px;font-weight:700;margin-bottom:8px">Revenue (7 days)</div>
+<div class="web-chart">
+<div class="web-bar-c" style="height:40%"><span>Mon</span></div><div class="web-bar-c" style="height:60%"><span>Tue</span></div><div class="web-bar-c" style="height:45%"><span>Wed</span></div><div class="web-bar-c" style="height:80%"><span>Thu</span></div><div class="web-bar-c" style="height:70%"><span>Fri</span></div><div class="web-bar-c" style="height:95%"><span>Sat</span></div><div class="web-bar-c" style="height:55%"><span>Sun</span></div>
+</div>
+<table style="width:100%;font-size:11px;border-collapse:collapse;margin-top:20px">
+<tr style="color:var(--t2);text-align:left;border-bottom:1px solid #EEE"><th style="padding:6px">User</th><th style="padding:6px">Experience</th><th style="padding:6px">Date</th><th style="padding:6px">Status</th><th style="padding:6px">Amount</th></tr>
+<tr style="border-bottom:1px solid #F9F9F9"><td style="padding:6px">Zhang Wei</td><td style="padding:6px">Premium Flight</td><td style="padding:6px">Oct 5</td><td style="padding:6px;color:#4CAF80">✓ Confirmed</td><td style="padding:6px">¥800</td></tr>
+<tr style="border-bottom:1px solid #F9F9F9"><td style="padding:6px">Li Na</td><td style="padding:6px">Sunset Glide</td><td style="padding:6px">Oct 7</td><td style="padding:6px;color:#FF9800">⏳ Pending</td><td style="padding:6px">¥1,000</td></tr>
+<tr><td style="padding:6px">Wang Min</td><td style="padding:6px">Premium Flight</td><td style="padding:6px">Oct 8</td><td style="padding:6px;color:#4CAF80">✓ Confirmed</td><td style="padding:6px">¥800</td></tr>
+</table>
+</div>
+</div>
+</div>
+
+<!-- FOOTER -->
+<div style="text-align:center;padding:40px 20px;color:rgba(255,255,255,0.35)">
+<div style="display:flex;gap:12px;justify-content:center;margin-bottom:12px">
+<div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--p),var(--p2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:900;font-family:'Songti SC',serif;position:relative">缘<div style="position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:3px;background:var(--g)"></div></div>
+</div>
+<p style="font-size:13px;margin-bottom:6px">Yuanly AI v1.0.0 — 缘ly</p>
+<p style="font-size:11px;line-height:18px">
+Backend: ✅ Live (SQLite dev / PostgreSQL prod) · TypeScript: ✅ 0 errors<br>
+Security: ✅ Helmet + CORS + Sanitize + Rate Limit + Audit + Encrypt<br>
+RBAC: ADMIN (1 person) → MERCHANT (granted) → USER<br>
+10 Mobile Screens · 21 Web Files · 9 Controllers · 12 DB Models<br>
+🇨🇳 CN · 🇬🇧 EN · 🇹🇷 TR — Dual-language AI with voice translation
+</p>
+</div>
+
+<script>
+const qr=document.getElementById('qr');if(qr){const s='yuanly_qr_booking_1_2026';for(let i=0;i<64;i++){const p=document.createElement('div');p.className='qr-px';p.style.backgroundColor=(s.charCodeAt(i%s.length)+i*7)%2?'#1A1A2E':'#FFF';qr.appendChild(p)}[0,1,2,8,9,10,16,17,18,5,6,7,13,14,15,21,22,23,40,41,42,48,49,50,56,57,58].forEach(i=>{if(qr.children[i])qr.children[i].style.backgroundColor='#1A1A2E'})}
+</script>
+</body>
+</html>

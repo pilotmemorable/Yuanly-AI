@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+.expo/
+ios/
+android/
+.env
+.env.*
+!.env.example
+*.db
+*.db-journal
+*.p8
+*.p12
+*.mobileprovision
+*.log
+.DS_Store
+coverage/

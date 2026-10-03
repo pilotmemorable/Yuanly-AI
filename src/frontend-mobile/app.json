@@ -1,33 +1,48 @@
 {
   "expo": {
     "name": "Yuanly AI",
-    "slug": "yuanly-ai",
+    "slug": "yuanly-backend",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#40E0D0"
     },
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "bundleIdentifier": "com.yuanly.ai",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "buildNumber": "1",
+      "infoPlist": {
+        "CFBundleDisplayName": "Yuanly",
+        "NSCameraUsageDescription": "Yuanly needs camera access to scan QR tickets and take review photos.",
+        "NSPhotoLibraryUsageDescription": "Yuanly needs photo library access to upload review photos.",
+        "NSMicrophoneUsageDescription": "Yuanly needs microphone access for voice translation and AI concierge.",
+        "NSLocationWhenInUseUsageDescription": "Yuanly uses your location to recommend nearby experiences in Turkey.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.yuanly.ai",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "ACCESS_FINE_LOCATION",
+        "VIBRATE"
+      ]
+    },
+    "extra": {
+      "apiUrl": "https://api.yuanly.ai/v1",
+      "eas": {
+        "projectId": "517b0337-e186-440c-b6c9-b724f2a75a79"
       }
     },
-    "plugins": [
-      "expo-localization",
-      "expo-constants"
-    ],
-    "extra": {
-      "apiUrl": "https://yuanly-ai-production.up.railway.app"
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
     }
   }
 }

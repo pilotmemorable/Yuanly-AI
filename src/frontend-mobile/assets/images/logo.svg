@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#40E0D0"/>
+      <stop offset="100%" stop-color="#2BAFB0"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#B8941F"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="20" flood-color="#000" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  <!-- Background rounded square (iOS app icon style) -->
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <!-- Decorative circle ring (gold accent) -->
+  <circle cx="512" cy="512" r="380" fill="none" stroke="url(#gold)" stroke-width="8" opacity="0.3"/>
+  <circle cx="512" cy="512" r="340" fill="none" stroke="url(#gold)" stroke-width="4" opacity="0.15"/>
+  <!-- 缘 character (the core brand element) -->
+  <text x="512" y="540" font-family="Songti SC, STSong, SimSun, serif" font-size="520" font-weight="900"
+        fill="#FFFFFF" text-anchor="middle" filter="url(#shadow)">缘</text>
+  <!-- Small AI dot accent (top right) -->
+  <circle cx="780" cy="280" r="28" fill="url(#gold)" opacity="0.9"/>
+  <circle cx="780" cy="280" r="14" fill="#FFFFFF" opacity="0.6"/>
+</svg>

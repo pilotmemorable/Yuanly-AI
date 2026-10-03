@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: yuanly
+      POSTGRES_PASSWORD: yuanly_dev_password
+      POSTGRES_DB: yuanly_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yuanly -d yuanly_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis (for 2FA codes, caching, sessions)
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Backend API
+  backend:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://yuanly:yuanly_dev_password@db:5432/yuanly_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev_jwt_secret_change_in_production
+      NODE_ENV: production
+      PORT: 5000
+      CORS_ORIGIN: http://localhost:3000,http://localhost:8081
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed && npm start"
+
+  # Web Frontend (Merchant + Admin)
+  web:
+    build:
+      context: ./src/frontend-web
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_URL: http://localhost:5000/v1
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
