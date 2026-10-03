@@ -1,77 +1,25 @@
-# Yuanly AI — Eksik İşler & Proje Durumu (Güncel)
+# Eksik İşler / Yapılacaklar (güncel: 2026-10-04 00:20)
 
-> Son güncelleme: 2026-10-03
-> Durum: Aktif Geliştirme — Phase 1-4 tamam, Phase 5 kısmen tamam
+Ayrıntılar ve komutlar: `PROJECT_HANDOFF.md`.
 
-## ✅ Phase 1: Backend Foundation (TAMAMLANDI)
-- [x] Express.js + Prisma + PostgreSQL iskeleti
-- [x] 12 veritabanı modeli (User, Merchant, Experience, Slot, Booking, Payment, Review, vb.)
-- [x] 9 controller: auth, experience, ai, booking, payment, merchant, review, slot, admin
-- [x] 9 route grubu + middleware (localization, error handling, rate limiting)
-- [x] Çeviri servisi (translationService.ts) — çift dilli mesaj sistemi
-- [x] AI controller — intent recognition + dual-language responses + voice endpoint
-- [x] Seed data (3 kullanıcı, 3 işletme, 4 deneyim, 84 slot)
-- [x] TypeScript sıfır hatayla derleniyor
+## Tamamlandı
+- [x] Backend yeniden yazıldı (PostgreSQL, şifreli giriş, tek admin, rezervasyon yönetimi, güvenlik düzeltmeleri) — smoke test 55/55
+- [x] Rol modeli: ADMIN (yalnızca pilotmemorable@gmail.com) / MERCHANT (firma yetkilisi) / USER
+- [x] Mobil uygulama Expo SDK 54'e yükseltildi; e-posta+şifre giriş, misafir gezinme, Rezervasyonlar sekmesi (MERCHANT), gerçek QR, hesap silme, CN/EN/TR
+- [x] Yönetim paneli (`src/admin-web`, Türkçe) — kullanıcı/firma/deneyim/rezervasyon/denetim kayıtları
+- [x] Gizlilik, şartlar, destek sayfaları (backend `/privacy` `/terms` `/support`)
+- [x] Uygulama ikonu/splash (marka logosundan)
+- [x] Dockerfile + railway.json (tek imaj: API + panel)
+- [x] ASC API anahtarı alındı (Key ID RN725U76DV)
 
-## ✅ Phase 2: Mobile App (TAMAMLANDI)
-- [x] API client service (tüm endpoint'ler)
-- [x] Auth: LoginScreen (WeChat + email + 2FA + guest mode)
-- [x] ExploreScreen: API'ye bağlı, arama, kategori, sayfalama
-- [x] DetailScreen: slot seçimi, kişi sayısı, yorumlar, rezervasyon hold
-- [x] PaymentScreen: WeChat Pay / Alipay
-- [x] MyTripsScreen: rezervasyon listesi, upcoming/past, iptal, QR
-- [x] QRTicketScreen: QR kod gösterimi, paylaşım
-- [x] AIConciergeScreen: çift dilli mesajlaşma + sesli çeviri
-- [x] ProfileScreen: gerçek profil verisi, dil değiştirici, istatistikler
-- [x] i18n: CN/EN/TR tam çeviriler
-- [x] Navigation: 4 tab + Stack + Auth flow
-
-## ✅ Phase 3: AI Integration (TAMAMLANDI)
-- [x] Translation service (translationService.ts)
-- [x] Dil tespiti (CN/EN/TR)
-- [x] Çift dilli mesaj sistemi (original + translated)
-- [x] AI intent recognition (booking, search, translate, general)
-- [x] Voice message endpoint (POST /v1/ai/voice)
-- [x] AI Concierge ekranı: orijinal + çeviri gösterimi, sesli buton
-- [x] Kişiselleştirilmiş öneriler (GET /v1/ai/recommend)
-- [ ] Gerçek STT entegrasyonu (Whisper / Azure Speech) — production'da
-- [ ] Gerçek LLM entegrasyonu (OpenAI / Anthropic) — production'da
-- [ ] Gerçek çeviri API'si (Google Translate / DeepL) — production'da
-
-## ✅ Phase 4: Web Frontend (TAMAMLANDI)
-- [x] Merchant login/register
-- [x] Merchant dashboard (gerçek API, grafikler)
-- [x] Merchant experiences CRUD
-- [x] Merchant bookings management
-- [x] Admin login
-- [x] Admin panel (platform istatistikleri)
-- [x] Admin merchant verification
-- [x] Admin financial overview
-- [x] Landing page (user portal)
-
-## 🔨 Phase 5: Social Layer, Testing & Deployment (KISMEN TAMAM)
-- [x] App Store metadata (EN + CN)
-- [x] app.json iOS konfigürasyonu
-- [x] eas.json build profilleri
-- [x] Privacy Policy + Terms of Service
-- [x] Docker & docker-compose
-- [x] Deployment rehberi (APP_STORE_GUIDE.md)
-- [x] Gerçek deployment checklist
-- [ ] Social sharing (Rednote/WeChat/Instagram) — backend hazır, mobil entegrasyon gerek
-- [ ] Review system with media uploads — backend hazır, mobil UI gerek
-- [ ] Push notifications — backend notification model hazır, expo-notifications entegrasyonu gerek
-- [ ] Unit/integration tests
-- [ ] CI/CD pipeline
-- [ ] Monitoring (Sentry)
-
-## 📋 Sizin Yapmanız Gerekenler
-1. `eas.json` dosyasındaki `appleId`, `ascAppId`, `appleTeamId` alanlarını doldurun
-2. PostgreSQL veritabanı kurun (Railway/Supabase önerilir)
-3. `DATABASE_URL` environment variable'ını ayarlayın
-4. `npx prisma migrate deploy && npm run seed` çalıştırın
-5. Logo/icon görsellerini `src/frontend-mobile/assets/images/` içine koyun
-6. `eas build --platform ios --profile production` ile build alın
-7. Screenshots alıp App Store Connect'e yükleyin
-8. `eas submit --platform ios --profile production` ile gönderin
-
-Ayrıntılı rehber: [APP_STORE_GUIDE.md](APP_STORE_GUIDE.md)
+## Yapılacak (öncelik sırasıyla)
+- [ ] **Backend'i yayına al** (Railway plan limiti engeli → plan yükselt / eski projeyi sil / başka host) ve `npm test` ile doğrula
+- [ ] `app.json → extra.apiUrl` değerini canlı adrese ayarla
+- [ ] **ASC Issuer ID** al; `eas.json` submit ayarlarına ASC API anahtarını bağla
+- [ ] `eas build --platform ios --profile production` + `eas submit`
+- [ ] Mobil uygulamayı simülatörde çalıştır, akışları elle doğrula (misafir → kayıt → rezervasyon → firma onayı → QR)
+- [ ] Yönetim panelini tarayıcıda doğrula
+- [ ] App Store/TestFlight ekran görüntüleri (iPhone 6.9" 1320×2868, 6.5", iPad 13" 2064×2752) — gerçek simülatör ekranları + 3D/cam efektli pazarlama çerçevesi
+- [ ] `metadata/ios/*` metinlerini güncelle (WeChat Pay/Alipay/2FA/ses iddialarını çıkar)
+- [ ] ASC: uygulama bilgisi, App Privacy, TestFlight test bilgisi, demo hesaplar, internal grup (anında test), external grup + public link (Beta App Review)
+- [ ] Sonra: e-posta doğrulama/şifre sıfırlama (SMTP), push bildirimleri, gerçek ödeme, gerçek AI, Sentry, CI

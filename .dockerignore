@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/.expo
+.git
+docs
+photos
+screenshots
+outputs
+src/frontend-mobile
+**/.env*
